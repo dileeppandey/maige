@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect, type WheelEvent } from 'react'
-import { ZoomIn, ZoomOut, Maximize, Square } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
+import { ZoomIn, ZoomOut, Maximize, Square, Hand } from 'lucide-react'
 
 interface ImageViewerProps {
     src: string
@@ -20,6 +20,12 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
     const [isFitMode, setIsFitMode] = useState(true)
     const [imageLoaded, setImageLoaded] = useState(false)
     const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 })
+
+    // Hand tool state
+    const [isHandToolActive, setIsHandToolActive] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+    const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
 
     // Calculate fit zoom based on container and image dimensions
     const calculateFitZoom = useCallback(() => {
@@ -159,6 +165,50 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
         }
     }
 
+    // Hand tool drag handlers
+    const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
+        if (!isHandToolActive) return
+        e.preventDefault()
+        setIsDragging(true)
+        setDragStart({ x: e.clientX, y: e.clientY })
+        if (scrollContainerRef.current) {
+            setScrollStart({
+                x: scrollContainerRef.current.scrollLeft,
+                y: scrollContainerRef.current.scrollTop
+            })
+        }
+    }, [isHandToolActive])
+
+    const handleMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
+        if (!isDragging || !scrollContainerRef.current) return
+        e.preventDefault()
+        const deltaX = e.clientX - dragStart.x
+        const deltaY = e.clientY - dragStart.y
+        scrollContainerRef.current.scrollLeft = scrollStart.x - deltaX
+        scrollContainerRef.current.scrollTop = scrollStart.y - deltaY
+    }, [isDragging, dragStart, scrollStart])
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false)
+    }, [])
+
+    const handleMouseLeave = useCallback(() => {
+        setIsDragging(false)
+    }, [])
+
+    // Toggle hand tool
+    const toggleHandTool = () => {
+        setIsHandToolActive(!isHandToolActive)
+    }
+
+    // Determine cursor for scroll container
+    const getContainerCursor = () => {
+        if (isHandToolActive) {
+            return isDragging ? 'grabbing' : 'grab'
+        }
+        return 'default'
+    }
+
     const zoomPercent = Math.round(zoom * 100)
     const scaledWidth = naturalSize.width * zoom
     const scaledHeight = naturalSize.height * zoom
@@ -199,6 +249,14 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
                 >
                     <Square size={14} />
                 </button>
+                <div className="w-px h-4 bg-[#333333] mx-1" />
+                <button
+                    onClick={toggleHandTool}
+                    className={`p-1 hover:bg-[#333333] rounded ${isHandToolActive ? 'bg-[#444444]' : ''}`}
+                    title="Hand Tool (Pan)"
+                >
+                    <Hand size={14} />
+                </button>
             </div>
 
             {/* Scrollable Image Container - fixed size, scrolls internally */}
@@ -207,10 +265,15 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
                 className="flex-1 overflow-auto"
                 onWheel={handleWheel}
                 onDoubleClick={handleDoubleClick}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
                 style={{
                     // Custom scrollbar styling via inline for Electron
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#444444 #1a1a1a',
+                    cursor: getContainerCursor(),
                 }}
             >
                 {/* Inner container that grows with zoomed image */}
@@ -236,7 +299,7 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
                             height: scaledHeight || 'auto',
                             maxWidth: 'none',
                             maxHeight: 'none',
-                            cursor: zoom > fitZoom ? 'grab' : 'default',
+                            pointerEvents: isHandToolActive ? 'none' : 'auto',
                         }}
                     />
                 </div>
