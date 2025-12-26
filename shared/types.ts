@@ -74,3 +74,57 @@ export const DEFAULT_IMAGE_ADJUSTMENTS: ImageAdjustments = {
     light: DEFAULT_LIGHT_ADJUSTMENTS,
     color: DEFAULT_COLOR_ADJUSTMENTS,
 };
+
+// ============================================
+// Library / Smart Organization Types
+// ============================================
+
+// Image record from database
+export type LibraryImage = {
+    id: number;
+    file_path: string;
+    file_name: string;
+    file_hash: string | null;
+    file_size: number | null;
+    width: number | null;
+    height: number | null;
+    date_taken: string | null;
+    date_imported: string;
+    camera_make: string | null;
+    camera_model: string | null;
+    gps_lat: number | null;
+    gps_lng: number | null;
+    phash: string | null;
+    auto_tags: string | null;
+    scene_type: string | null;
+    analyzed_at: string | null;
+    analysis_version: number;
+};
+
+// Group of duplicate images
+export type DuplicateGroup = {
+    groupId: number;
+    images: LibraryImage[];
+};
+
+// Library statistics
+export type LibraryStats = {
+    totalImages: number;
+    duplicateGroups: number;
+};
+
+// Import progress event
+export type ImportProgress = {
+    phase: 'scanning' | 'analyzing' | 'saving' | 'detecting_duplicates' | 'complete';
+    current: number;
+    total: number;
+    file: string;
+};
+
+// Import result
+export type ImportResult = {
+    success: boolean;
+    imported: number;
+    duplicates: number;
+    error?: string;
+};

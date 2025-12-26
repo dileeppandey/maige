@@ -1,4 +1,4 @@
-import { FileInfo } from '../shared/types';
+import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult } from '../shared/types';
 
 export { };
 
@@ -12,6 +12,13 @@ declare global {
             };
             selectFolder: () => Promise<string | null>;
             readFolder: (path: string) => Promise<FileInfo[]>;
+
+            // Library operations
+            importFolder: (path: string) => Promise<ImportResult>;
+            getLibraryImages: () => Promise<LibraryImage[]>;
+            getDuplicates: () => Promise<DuplicateGroup[]>;
+            getStats: () => Promise<LibraryStats>;
+            onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
         };
     }
 }
