@@ -196,11 +196,14 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                             setLocalQuery('')
                             showAllPhotos()
                         }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-[#333333] rounded cursor-pointer text-left ${viewMode === 'library' ? 'bg-[#333333]' : ''}`}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'library' && !searchQuery
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-300 hover:bg-[#333333]'
+                            }`}
                     >
-                        <Images size={14} className="text-gray-500" />
+                        <Images size={14} className={viewMode === 'library' && !searchQuery ? 'text-white' : 'text-gray-500'} />
                         <span>All Photos</span>
-                        <span className="ml-auto text-xs text-gray-500">{stats.totalImages}</span>
+                        <span className={`ml-auto text-xs ${viewMode === 'library' && !searchQuery ? 'text-blue-200' : 'text-gray-500'}`}>{stats.totalImages}</span>
                     </button>
 
                     {/* Duplicates */}
@@ -228,10 +231,13 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                                         setLocalQuery(tag.tag)
                                         filterByTag(tag.tag)
                                     }}
-                                    className="px-2 py-0.5 text-xs bg-[#333333] hover:bg-[#444444] rounded text-gray-300 transition-colors"
+                                    className={`px-2 py-0.5 text-xs rounded transition-colors ${viewMode === 'tag' && searchQuery === tag.tag
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-[#333333] hover:bg-[#444444] text-gray-300'
+                                        }`}
                                 >
                                     {tag.tag}
-                                    <span className="ml-1 text-gray-500">{tag.count}</span>
+                                    <span className={`ml-1 ${viewMode === 'tag' && searchQuery === tag.tag ? 'text-blue-100' : 'text-gray-500'}`}>{tag.count}</span>
                                 </button>
                             ))}
                         </div>
