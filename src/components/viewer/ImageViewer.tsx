@@ -31,7 +31,7 @@ export function ImageViewer({
     const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
 
     // Canvas processor hook
-    const { canvasRef, isLoading, error, dimensions } = useCanvasProcessor({
+    const { canvasRef, isLoading, error, dimensions, showOriginal, showProcessed, isShowingOriginal } = useCanvasProcessor({
         src,
         adjustments
     })
@@ -211,6 +211,23 @@ export function ImageViewer({
     const scaledWidth = naturalWidth * zoom
     const scaledHeight = naturalHeight * zoom
 
+    // Hold-to-compare handlers (on canvas, not affected by hand tool)
+    const handleCanvasMouseDown = useCallback(() => {
+        if (!isHandToolActive) {
+            showOriginal()
+        }
+    }, [isHandToolActive, showOriginal])
+
+    const handleCanvasMouseUp = useCallback(() => {
+        showProcessed()
+    }, [showProcessed])
+
+    const handleCanvasMouseLeave = useCallback(() => {
+        if (isShowingOriginal) {
+            showProcessed()
+        }
+    }, [isShowingOriginal, showProcessed])
+
     return (
         <div ref={containerRef} className="h-full w-full flex flex-col bg-[#1e1e1e] overflow-hidden">
             {/* Zoom Toolbar */}
@@ -299,17 +316,28 @@ export function ImageViewer({
                             padding: '16px',
                         }}
                     >
-                        <canvas
-                            ref={canvasRef}
-                            className="shadow-2xl select-none"
-                            style={{
-                                width: scaledWidth || 'auto',
-                                height: scaledHeight || 'auto',
-                                maxWidth: 'none',
-                                maxHeight: 'none',
-                                pointerEvents: isHandToolActive ? 'none' : 'auto',
-                            }}
-                        />
+                        <div className="relative">
+                            <canvas
+                                ref={canvasRef}
+                                className="shadow-2xl select-none"
+                                onMouseDown={handleCanvasMouseDown}
+                                onMouseUp={handleCanvasMouseUp}
+                                onMouseLeave={handleCanvasMouseLeave}
+                                style={{
+                                    width: scaledWidth || 'auto',
+                                    height: scaledHeight || 'auto',
+                                    maxWidth: 'none',
+                                    maxHeight: 'none',
+                                    pointerEvents: isHandToolActive ? 'none' : 'auto',
+                                }}
+                            />
+                            {/* Original indicator overlay */}
+                            {isShowingOriginal && (
+                                <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                    Original
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

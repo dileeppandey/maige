@@ -182,6 +182,22 @@ export class ImageProcessor {
     }
 
     /**
+     * Render the original (unprocessed) image to a target canvas
+     */
+    renderOriginal(targetCanvas: HTMLCanvasElement): void {
+        if (!this.originalCtx || !this.originalCanvas) return
+
+        const imageData = this.originalCtx.getImageData(0, 0, this.width, this.height)
+
+        targetCanvas.width = this.width
+        targetCanvas.height = this.height
+        const ctx = targetCanvas.getContext('2d')
+        if (ctx) {
+            ctx.putImageData(imageData, 0, 0)
+        }
+    }
+
+    /**
      * Generate histogram data from current processed image
      */
     generateHistogram(adjustments: ImageAdjustments): { r: number[]; g: number[]; b: number[]; lum: number[] } {

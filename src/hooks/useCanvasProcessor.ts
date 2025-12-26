@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { ImageProcessor } from '../processing/ImageProcessor'
 import type { ImageAdjustments } from '../../shared/types'
 
@@ -13,6 +13,9 @@ interface UseCanvasProcessorReturn {
     error: string | null
     dimensions: { width: number; height: number }
     histogram: { r: number[]; g: number[]; b: number[]; lum: number[] } | null
+    showOriginal: () => void
+    showProcessed: () => void
+    isShowingOriginal: boolean
 }
 
 /**
@@ -29,6 +32,11 @@ export function useCanvasProcessor({
     const [error, setError] = useState<string | null>(null)
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
     const [histogram, setHistogram] = useState<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>(null)
+    const [isShowingOriginal, setIsShowingOriginal] = useState(false)
+
+    // Store current adjustments for restoration
+    const currentAdjustmentsRef = useRef(adjustments)
+    currentAdjustmentsRef.current = adjustments
 
     // Debounce timer for processing
     const processTimerRef = useRef<number | null>(null)
@@ -73,7 +81,7 @@ export function useCanvasProcessor({
         const processor = processorRef.current
         const canvas = canvasRef.current
 
-        if (!processor || !processor.isLoaded() || !canvas) {
+        if (!processor || !processor.isLoaded() || !canvas || isShowingOriginal) {
             return
         }
 
@@ -96,7 +104,7 @@ export function useCanvasProcessor({
                 cancelAnimationFrame(processTimerRef.current)
             }
         }
-    }, [adjustments])
+    }, [adjustments, isShowingOriginal])
 
     // Initial render when loading completes
     useEffect(() => {
@@ -110,11 +118,36 @@ export function useCanvasProcessor({
         }
     }, [isLoading, adjustments])
 
+    // Show original (unprocessed) image
+    const showOriginal = useCallback(() => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+
+        if (!processor || !processor.isLoaded() || !canvas) return
+
+        setIsShowingOriginal(true)
+        processor.renderOriginal(canvas)
+    }, [])
+
+    // Show processed image
+    const showProcessed = useCallback(() => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+
+        if (!processor || !processor.isLoaded() || !canvas) return
+
+        setIsShowingOriginal(false)
+        processor.processToCanvas(currentAdjustmentsRef.current, canvas)
+    }, [])
+
     return {
         canvasRef,
         isLoading,
         error,
         dimensions,
-        histogram
+        histogram,
+        showOriginal,
+        showProcessed,
+        isShowingOriginal
     }
 }
