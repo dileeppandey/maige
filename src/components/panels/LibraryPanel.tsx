@@ -23,9 +23,11 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         importFolder,
         search,
         clearSearch,
+        filterByTag,
     } = useLibraryStore()
 
     const [localQuery, setLocalQuery] = useState('')
+    const [showAllTags, setShowAllTags] = useState(false)
 
     // Setup progress listener and load initial data
     useEffect(() => {
@@ -104,9 +106,9 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     {(localQuery || searchQuery) && (
                         <button
                             onClick={handleClearSearch}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-500 hover:text-white hover:bg-gray-600 rounded"
                         >
-                            <X size={14} />
+                            <X size={12} />
                         </button>
                     )}
                 </div>
@@ -206,12 +208,12 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                             <span>Tags</span>
                         </div>
                         <div className="flex flex-wrap gap-1 px-2">
-                            {tags.slice(0, 10).map((tag) => (
+                            {(showAllTags ? tags : tags.slice(0, 10)).map((tag) => (
                                 <button
                                     key={tag.tag}
                                     onClick={() => {
                                         setLocalQuery(tag.tag)
-                                        search(tag.tag)
+                                        filterByTag(tag.tag)
                                     }}
                                     className="px-2 py-0.5 text-xs bg-[#333333] hover:bg-[#444444] rounded text-gray-300 transition-colors"
                                 >
@@ -221,9 +223,12 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                             ))}
                         </div>
                         {tags.length > 10 && (
-                            <div className="px-2 mt-1 text-xs text-gray-500">
-                                +{tags.length - 10} more tags
-                            </div>
+                            <button
+                                onClick={() => setShowAllTags(!showAllTags)}
+                                className="px-2 mt-1 text-xs text-blue-400 hover:text-blue-300"
+                            >
+                                {showAllTags ? 'Show less' : `+${tags.length - 10} more tags`}
+                            </button>
                         )}
                     </div>
                 )}

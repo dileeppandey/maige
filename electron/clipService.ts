@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers for local inference
  */
 
-import { pipeline, env } from '@huggingface/transformers';
+import { pipeline, env, AutoTokenizer, CLIPTextModelWithProjection } from '@huggingface/transformers';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -20,6 +20,10 @@ env.cacheDir = modelsDir;
 let imageClassifier: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let featureExtractor: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let tokenizer: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let textModel: any = null;
 
 // Tag categories for zero-shot classification
 export const TAG_LABELS = {
@@ -112,21 +116,37 @@ export async function generateEmbedding(imagePath: string): Promise<number[] | n
     }
 }
 
+
+
+/**
+ * Initialize text tokenizer and model for CLIP
+ */
+async function initTextEncoder() {
+    if (tokenizer && textModel) return { tokenizer, textModel };
+
+    console.log('Loading CLIP text encoder...');
+    tokenizer = await AutoTokenizer.from_pretrained('Xenova/clip-vit-base-patch32');
+    textModel = await CLIPTextModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32', {
+        dtype: 'q8',
+    });
+    console.log('CLIP text encoder loaded');
+
+    return { tokenizer, textModel };
+}
+
 /**
  * Generate text embedding for semantic search
+ * Uses the proper CLIP text encoder to ensure alignment with image embeddings.
  */
 export async function generateTextEmbedding(text: string): Promise<number[] | null> {
-    // For text embeddings, we need a text feature extraction pipeline
-    // CLIP uses the same model for both, but different input processing
     try {
-        const textPipeline = await pipeline(
-            'feature-extraction',
-            'Xenova/clip-vit-base-patch32',
-            { device: 'cpu' }
-        );
+        const { tokenizer, textModel } = await initTextEncoder();
 
-        const result = await textPipeline(text, { pooling: 'mean', normalize: true });
-        const embedding = Array.from(result.data as Float32Array);
+        const inputs = tokenizer([text], { padding: true, truncation: true });
+        const { text_embeds } = await textModel(inputs);
+
+        // Convert Tensor to array
+        const embedding = Array.from(text_embeds.data as Float32Array);
         return embedding;
     } catch (error) {
         console.error('Failed to generate text embedding:', error);

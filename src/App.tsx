@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import type { FileInfo, LightAdjustments } from '../shared/types'
 import { LibraryPanel } from './components/panels/LibraryPanel'
 import { DevelopPanel } from './components/panels/DevelopPanel'
@@ -6,6 +6,7 @@ import { Filmstrip } from './components/panels/Filmstrip'
 import { ImagePreview } from './components/layout/ImagePreview'
 import { ResizableLayout } from './components/layout/ResizableLayout'
 import { useEditStore } from './store/useEditStore'
+import { useLibraryStore } from './store/useLibraryStore'
 
 function App() {
   // Get state and actions from the edit store
@@ -23,10 +24,27 @@ function App() {
     applyPreset
   } = useEditStore()
 
+  // Get search state from library store
+  const { searchQuery, searchResults }: { searchQuery: string; searchResults: Array<{ id: number; file_path: string; similarity: number }> } = useLibraryStore()
+
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
   const [files, setFiles] = React.useState<FileInfo[]>([])
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
+
+  // Compute display files: search results or folder files
+  const displayFiles = useMemo<FileInfo[]>(() => {
+    if (searchQuery && searchResults.length > 0) {
+      // Convert search results to FileInfo format
+      return searchResults.map(result => ({
+        name: result.file_path.split('/').pop() || '',
+        path: result.file_path,
+        isDirectory: false,
+        type: 'image' as const,
+      }))
+    }
+    return files
+  }, [searchQuery, searchResults, files])
 
   // Sync selected file with edit store
   useEffect(() => {
@@ -121,7 +139,7 @@ function App() {
       />
 
       <Filmstrip
-        files={files}
+        files={displayFiles}
         selectedFile={selectedFile}
         onSelectFile={setSelectedFile}
       />
@@ -131,3 +149,4 @@ function App() {
 }
 
 export default App
+

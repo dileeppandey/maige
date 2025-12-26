@@ -26,6 +26,7 @@ interface LibraryState {
     setImportProgress: (progress: ImportProgress | null) => void;
     search: (query: string) => Promise<void>;
     clearSearch: () => void;
+    filterByTag: (tagName: string) => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -129,6 +130,25 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Clear search
     clearSearch: () => {
         set({ searchQuery: '', searchResults: [], isSearching: false });
+    },
+
+    // Filter by exact tag match (uses getImagesByTag instead of semantic search)
+    filterByTag: async (tagName: string) => {
+        set({ searchQuery: tagName, isSearching: true });
+
+        try {
+            const images = await window.electronAPI.getImagesByTag(tagName);
+            // Convert LibraryImage[] to SearchResult[] format
+            const results = images.map(img => ({
+                id: img.id,
+                file_path: img.file_path,
+                similarity: 1.0, // Exact match
+            }));
+            set({ searchResults: results, isSearching: false });
+        } catch (error) {
+            console.error('Filter by tag failed:', error);
+            set({ searchResults: [], isSearching: false });
+        }
     },
 }));
 
