@@ -115,7 +115,7 @@ export type LibraryStats = {
 
 // Import progress event
 export type ImportProgress = {
-    phase: 'scanning' | 'analyzing' | 'saving' | 'detecting_duplicates' | 'complete';
+    phase: 'scanning' | 'analyzing' | 'saving' | 'detecting_duplicates' | 'ai_tagging' | 'complete';
     current: number;
     total: number;
     file: string;
@@ -127,4 +127,18 @@ export type ImportResult = {
     imported: number;
     duplicates: number;
     error?: string;
+};
+
+// Tag information
+export type TagInfo = {
+    tag: string;
+    count: number;
+    category: string | null;
+};
+
+// Search result
+export type SearchResult = {
+    id: number;
+    file_path: string;
+    similarity: number;
 };

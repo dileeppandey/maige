@@ -1,4 +1,4 @@
-import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult } from '../shared/types';
+import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult } from '../shared/types';
 
 export { };
 
@@ -19,6 +19,11 @@ declare global {
             getDuplicates: () => Promise<DuplicateGroup[]>;
             getStats: () => Promise<LibraryStats>;
             onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
+
+            // Tags and search
+            getTags: () => Promise<TagInfo[]>;
+            getImagesByTag: (tag: string) => Promise<LibraryImage[]>;
+            search: (query: string) => Promise<SearchResult[]>;
         };
     }
 }

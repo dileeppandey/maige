@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { FileInfo } from '../../../shared/types'
-import { FolderOpen, Images, Copy, Loader2 } from 'lucide-react'
+import { FolderOpen, Images, Copy, Loader2, Search, Tag, X } from 'lucide-react'
 import { useLibraryStore, setupLibraryProgressListener } from '../../store/useLibraryStore'
 
 interface LibraryPanelProps {
@@ -10,14 +10,30 @@ interface LibraryPanelProps {
 }
 
 export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelProps) {
-    const { stats, isImporting, importProgress, loadStats, importFolder } = useLibraryStore()
+    const {
+        stats,
+        isImporting,
+        importProgress,
+        tags,
+        searchQuery,
+        searchResults,
+        isSearching,
+        loadStats,
+        loadTags,
+        importFolder,
+        search,
+        clearSearch,
+    } = useLibraryStore()
 
-    // Setup progress listener and load initial stats
+    const [localQuery, setLocalQuery] = useState('')
+
+    // Setup progress listener and load initial data
     useEffect(() => {
         const cleanup = setupLibraryProgressListener()
         loadStats()
+        loadTags()
         return cleanup
-    }, [loadStats])
+    }, [loadStats, loadTags])
 
     // Handle import folder action
     const handleImportFolder = async () => {
@@ -25,6 +41,24 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         if (path) {
             await importFolder(path)
         }
+    }
+
+    // Handle search
+    const handleSearch = () => {
+        if (localQuery.trim()) {
+            search(localQuery)
+        }
+    }
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSearch()
+        }
+    }
+
+    const handleClearSearch = () => {
+        setLocalQuery('')
+        clearSearch()
     }
 
     // Format progress message
@@ -39,6 +73,8 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                 return `Saving ${importProgress.current}/${importProgress.total}`
             case 'detecting_duplicates':
                 return 'Detecting duplicates...'
+            case 'ai_tagging':
+                return `AI tagging ${importProgress.current}/${importProgress.total}`
             case 'complete':
                 return 'Import complete!'
             default:
@@ -51,6 +87,40 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
             {/* Header */}
             <div className="h-12 flex items-center px-4 border-b border-[#333333]">
                 <span className="font-semibold text-sm text-gray-100 uppercase tracking-wide">Library</span>
+            </div>
+
+            {/* Search Bar */}
+            <div className="p-2 border-b border-[#333333]">
+                <div className="relative">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                        type="text"
+                        placeholder="Search images..."
+                        value={localQuery}
+                        onChange={(e) => setLocalQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="w-full pl-8 pr-8 py-1.5 text-sm bg-[#1a1a1a] border border-[#333333] rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    />
+                    {(localQuery || searchQuery) && (
+                        <button
+                            onClick={handleClearSearch}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+                </div>
+                {isSearching && (
+                    <div className="flex items-center gap-2 mt-1 text-xs text-blue-400">
+                        <Loader2 size={12} className="animate-spin" />
+                        <span>Searching...</span>
+                    </div>
+                )}
+                {searchResults.length > 0 && (
+                    <div className="mt-1 text-xs text-green-400">
+                        {searchResults.length} results for "{searchQuery}"
+                    </div>
+                )}
             </div>
 
             {/* Content */}
@@ -128,6 +198,36 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     )}
                 </div>
 
+                {/* Tags Section */}
+                {tags.length > 0 && (
+                    <div className="mt-4 px-2">
+                        <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
+                            <Tag size={12} className="mr-1" />
+                            <span>Tags</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 px-2">
+                            {tags.slice(0, 10).map((tag) => (
+                                <button
+                                    key={tag.tag}
+                                    onClick={() => {
+                                        setLocalQuery(tag.tag)
+                                        search(tag.tag)
+                                    }}
+                                    className="px-2 py-0.5 text-xs bg-[#333333] hover:bg-[#444444] rounded text-gray-300 transition-colors"
+                                >
+                                    {tag.tag}
+                                    <span className="ml-1 text-gray-500">{tag.count}</span>
+                                </button>
+                            ))}
+                        </div>
+                        {tags.length > 10 && (
+                            <div className="px-2 mt-1 text-xs text-gray-500">
+                                +{tags.length - 10} more tags
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Current Folder Stats */}
                 <div className="mt-4 px-2">
                     <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
@@ -141,3 +241,4 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         </div>
     )
 }
+

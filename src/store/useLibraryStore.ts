@@ -1,11 +1,17 @@
 import { create } from 'zustand';
-import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress } from '../../shared/types';
+import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, TagInfo, SearchResult } from '../../shared/types';
 
 interface LibraryState {
     // Data
     images: LibraryImage[];
     duplicateGroups: DuplicateGroup[];
     stats: LibraryStats;
+    tags: TagInfo[];
+
+    // Search state
+    searchQuery: string;
+    searchResults: SearchResult[];
+    isSearching: boolean;
 
     // Import state
     isImporting: boolean;
@@ -15,8 +21,11 @@ interface LibraryState {
     loadImages: () => Promise<void>;
     loadDuplicates: () => Promise<void>;
     loadStats: () => Promise<void>;
+    loadTags: () => Promise<void>;
     importFolder: (path: string) => Promise<void>;
     setImportProgress: (progress: ImportProgress | null) => void;
+    search: (query: string) => Promise<void>;
+    clearSearch: () => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -24,6 +33,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     images: [],
     duplicateGroups: [],
     stats: { totalImages: 0, duplicateGroups: 0 },
+    tags: [],
+    searchQuery: '',
+    searchResults: [],
+    isSearching: false,
     isImporting: false,
     importProgress: null,
 
@@ -57,6 +70,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         }
     },
 
+    // Load all tags
+    loadTags: async () => {
+        try {
+            const tags = await window.electronAPI.getTags();
+            set({ tags });
+        } catch (error) {
+            console.error('Failed to load tags:', error);
+        }
+    },
+
     // Import a folder
     importFolder: async (path: string) => {
         set({ isImporting: true, importProgress: null });
@@ -69,6 +92,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                 await get().loadImages();
                 await get().loadDuplicates();
                 await get().loadStats();
+                await get().loadTags();
             } else {
                 console.error('Import failed:', result.error);
             }
@@ -83,6 +107,29 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     setImportProgress: (progress) => {
         set({ importProgress: progress });
     },
+
+    // Semantic search
+    search: async (query: string) => {
+        if (!query.trim()) {
+            set({ searchQuery: '', searchResults: [], isSearching: false });
+            return;
+        }
+
+        set({ searchQuery: query, isSearching: true });
+
+        try {
+            const results = await window.electronAPI.search(query);
+            set({ searchResults: results, isSearching: false });
+        } catch (error) {
+            console.error('Search failed:', error);
+            set({ searchResults: [], isSearching: false });
+        }
+    },
+
+    // Clear search
+    clearSearch: () => {
+        set({ searchQuery: '', searchResults: [], isSearching: false });
+    },
 }));
 
 // Setup progress listener (call once on app init)
@@ -91,3 +138,4 @@ export function setupLibraryProgressListener() {
         useLibraryStore.getState().setImportProgress(progress as ImportProgress);
     });
 }
+

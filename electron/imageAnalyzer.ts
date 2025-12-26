@@ -27,7 +27,7 @@ export interface AnalyzedImage {
 }
 
 /**
- * Generate a perceptual hash for an image
+ * Generate a perceptual hash for an ima ge
  * Uses a simplified dHash (difference hash) algorithm
  */
 export async function generatePHash(imagePath: string): Promise<string> {

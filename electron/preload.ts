@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDuplicates: () => ipcRenderer.invoke('library:getDuplicates'),
     getStats: () => ipcRenderer.invoke('library:getStats'),
 
+    // Tags and search
+    getTags: () => ipcRenderer.invoke('library:getTags'),
+    getImagesByTag: (tag: string) => ipcRenderer.invoke('library:getImagesByTag', tag),
+    search: (query: string) => ipcRenderer.invoke('library:search', query),
+
     // Progress listener (returns cleanup function)
     onImportProgress: (callback: (progress: unknown) => void) => {
         const handler = (_event: unknown, progress: unknown) => callback(progress);

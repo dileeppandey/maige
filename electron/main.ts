@@ -137,6 +137,53 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
 
         const duplicateGroupsCount = createDuplicateGroups();
 
+        // Step 5: AI Tagging (run in background-ish manner, image by image)
+        mainWindow?.webContents.send('library:importProgress', {
+            phase: 'ai_tagging',
+            current: 0,
+            total: analyzed.length,
+            file: '',
+        });
+
+        // Import CLIP and database functions lazily
+        const { analyzeImageWithCLIP } = await import('./clipService.js');
+        const { addImageTags, updateImageEmbedding, getImageByPath } = await import('./database.js');
+
+        for (let i = 0; i < analyzed.length; i++) {
+            const img = analyzed[i];
+
+            try {
+                // Get the image record from DB to get its ID
+                const imageRecord = getImageByPath(img.filePath);
+                if (!imageRecord) continue;
+
+                // Run CLIP analysis
+                const clipResult = await analyzeImageWithCLIP(img.filePath);
+
+                // Save tags
+                if (clipResult.tags.length > 0) {
+                    addImageTags(imageRecord.id, clipResult.tags);
+                }
+
+                // Save embedding
+                if (clipResult.embedding) {
+                    updateImageEmbedding(imageRecord.id, clipResult.embedding);
+                }
+
+                if (i % 5 === 0) {
+                    mainWindow?.webContents.send('library:importProgress', {
+                        phase: 'ai_tagging',
+                        current: i + 1,
+                        total: analyzed.length,
+                        file: img.fileName,
+                    });
+                }
+            } catch (clipError) {
+                console.error('CLIP analysis failed for:', img.filePath, clipError);
+                // Continue with next image
+            }
+        }
+
         mainWindow?.webContents.send('library:importProgress', {
             phase: 'complete',
             current: analyzed.length,
@@ -193,6 +240,70 @@ ipcMain.handle('library:getStats', async () => {
     } catch (error) {
         console.error('Failed to get stats:', error);
         return { totalImages: 0, duplicateGroups: 0 };
+    }
+});
+
+/**
+ * Get all unique tags
+ */
+ipcMain.handle('library:getTags', async () => {
+    try {
+        const { getAllTags } = await import('./database.js');
+        return getAllTags();
+    } catch (error) {
+        console.error('Failed to get tags:', error);
+        return [];
+    }
+});
+
+/**
+ * Get images by tag
+ */
+ipcMain.handle('library:getImagesByTag', async (_, tagName: string) => {
+    try {
+        const { getImagesByTag } = await import('./database.js');
+        return getImagesByTag(tagName);
+    } catch (error) {
+        console.error('Failed to get images by tag:', error);
+        return [];
+    }
+});
+
+/**
+ * Semantic search by text query
+ */
+ipcMain.handle('library:search', async (_, query: string) => {
+    try {
+        const { generateTextEmbedding, cosineSimilarity } = await import('./clipService.js');
+        const { getImagesWithEmbeddings } = await import('./database.js');
+
+        // Generate embedding for search query
+        const queryEmbedding = await generateTextEmbedding(query);
+        if (!queryEmbedding) {
+            return [];
+        }
+
+        // Get all images with embeddings
+        const images = getImagesWithEmbeddings();
+
+        // Calculate similarity and rank
+        const results = images
+            .map(img => ({
+                ...img,
+                similarity: cosineSimilarity(queryEmbedding, img.embedding),
+            }))
+            .filter(img => img.similarity > 0.2) // Threshold for relevance
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, 50); // Top 50 results
+
+        return results.map(({ id, file_path, similarity }) => ({
+            id,
+            file_path,
+            similarity,
+        }));
+    } catch (error) {
+        console.error('Search failed:', error);
+        return [];
     }
 });
 

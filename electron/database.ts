@@ -67,10 +67,31 @@ function createSchema(db: Database.Database): void {
             phash TEXT,
             auto_tags TEXT,
             scene_type TEXT,
+            clip_embedding BLOB,
             
             -- Processing status
             analyzed_at DATETIME,
             analysis_version INTEGER DEFAULT 1
+        )
+    `);
+
+    // Tags table (unique tags)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            category TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Image-Tag junction table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS image_tags (
+            image_id INTEGER REFERENCES images(id) ON DELETE CASCADE,
+            tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+            score REAL,
+            PRIMARY KEY (image_id, tag_id)
         )
     `);
 
@@ -97,6 +118,9 @@ function createSchema(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_images_phash ON images(phash);
         CREATE INDEX IF NOT EXISTS idx_images_date ON images(date_taken);
         CREATE INDEX IF NOT EXISTS idx_images_path ON images(file_path);
+        CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+        CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags(image_id);
+        CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
     `);
 }
 
@@ -315,5 +339,143 @@ export function getDuplicateGroups(): { groupId: number; images: ImageRecord[] }
         `).all(group.id) as ImageRecord[];
 
         return { groupId: group.id, images };
+    });
+}
+
+// ============================================
+// Tag Operations
+// ============================================
+
+export interface TagRecord {
+    id: number;
+    name: string;
+    category: string | null;
+    created_at: string;
+}
+
+/**
+ * Get or create a tag by name
+ */
+export function getOrCreateTag(name: string, category?: string): number {
+    const db = getDatabase();
+
+    // Try to find existing
+    const existing = db.prepare('SELECT id FROM tags WHERE name = ?').get(name) as { id: number } | undefined;
+    if (existing) return existing.id;
+
+    // Create new
+    const result = db.prepare('INSERT INTO tags (name, category) VALUES (?, ?)').run(name, category || null);
+    return result.lastInsertRowid as number;
+}
+
+/**
+ * Add tags to an image
+ */
+export function addImageTags(imageId: number, tags: { tag: string; score: number; category?: string }[]): void {
+    const db = getDatabase();
+
+    const insertStmt = db.prepare(`
+        INSERT OR REPLACE INTO image_tags (image_id, tag_id, score)
+        VALUES (?, ?, ?)
+    `);
+
+    for (const { tag, score, category } of tags) {
+        const tagId = getOrCreateTag(tag, category);
+        insertStmt.run(imageId, tagId, score);
+    }
+}
+
+/**
+ * Get tags for an image
+ */
+export function getImageTags(imageId: number): { tag: string; score: number; category: string | null }[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT t.name as tag, it.score, t.category
+        FROM image_tags it
+        JOIN tags t ON t.id = it.tag_id
+        WHERE it.image_id = ?
+        ORDER BY it.score DESC
+    `).all(imageId) as { tag: string; score: number; category: string | null }[];
+}
+
+/**
+ * Get all unique tags with counts
+ */
+export function getAllTags(): { tag: string; count: number; category: string | null }[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT t.name as tag, COUNT(it.image_id) as count, t.category
+        FROM tags t
+        LEFT JOIN image_tags it ON it.tag_id = t.id
+        GROUP BY t.id
+        HAVING count > 0
+        ORDER BY count DESC
+    `).all() as { tag: string; count: number; category: string | null }[];
+}
+
+/**
+ * Get images by tag
+ */
+export function getImagesByTag(tagName: string): ImageRecord[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT i.* FROM images i
+        JOIN image_tags it ON it.image_id = i.id
+        JOIN tags t ON t.id = it.tag_id
+        WHERE t.name = ?
+        ORDER BY it.score DESC
+    `).all(tagName) as ImageRecord[];
+}
+
+/**
+ * Update image CLIP embedding
+ */
+export function updateImageEmbedding(imageId: number, embedding: number[]): void {
+    const db = getDatabase();
+
+    // Convert to Buffer for BLOB storage
+    const buffer = Buffer.from(new Float32Array(embedding).buffer);
+
+    db.prepare('UPDATE images SET clip_embedding = ? WHERE id = ?').run(buffer, imageId);
+}
+
+/**
+ * Get image embedding as array
+ */
+export function getImageEmbedding(imageId: number): number[] | null {
+    const db = getDatabase();
+
+    const row = db.prepare('SELECT clip_embedding FROM images WHERE id = ?').get(imageId) as { clip_embedding: Buffer | null } | undefined;
+
+    if (!row?.clip_embedding) return null;
+
+    // Convert Buffer back to Float32Array
+    const float32 = new Float32Array(row.clip_embedding.buffer, row.clip_embedding.byteOffset, row.clip_embedding.length / 4);
+    return Array.from(float32);
+}
+
+/**
+ * Get all images with embeddings for search
+ */
+export function getImagesWithEmbeddings(): { id: number; file_path: string; embedding: number[] }[] {
+    const db = getDatabase();
+
+    const rows = db.prepare(`
+        SELECT id, file_path, clip_embedding 
+        FROM images 
+        WHERE clip_embedding IS NOT NULL
+    `).all() as { id: number; file_path: string; clip_embedding: Buffer }[];
+
+    return rows.map(row => {
+        const float32 = new Float32Array(row.clip_embedding.buffer, row.clip_embedding.byteOffset, row.clip_embedding.length / 4);
+        return {
+            id: row.id,
+            file_path: row.file_path,
+            embedding: Array.from(float32),
+        };
     });
 }

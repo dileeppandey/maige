@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "better-sqlite3": "^12.5.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
