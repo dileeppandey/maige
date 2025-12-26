@@ -307,6 +307,23 @@ ipcMain.handle('library:search', async (_, query: string) => {
     }
 });
 
+/**
+ * Get tags for a specific image by file path
+ */
+ipcMain.handle('library:getImageTagsByPath', async (_, filePath: string) => {
+    try {
+        const { getImageByPath, getImageTags } = await import('./database.js');
+        const image = getImageByPath(filePath);
+        if (!image) {
+            return [];
+        }
+        return getImageTags(image.id);
+    } catch (error) {
+        console.error('Failed to get image tags:', error);
+        return [];
+    }
+});
+
 const createWindow = () => {
     // Create the browser window.
     console.log('Preload path:', path.join(__dirname, 'preload.js'));

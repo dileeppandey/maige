@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Tags and search
     getTags: () => ipcRenderer.invoke('library:getTags'),
     getImagesByTag: (tag: string) => ipcRenderer.invoke('library:getImagesByTag', tag),
+    getImageTagsByPath: (filePath: string) => ipcRenderer.invoke('library:getImageTagsByPath', filePath),
     search: (query: string) => ipcRenderer.invoke('library:search', query),
 
     // Progress listener (returns cleanup function)

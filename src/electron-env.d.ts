@@ -23,6 +23,7 @@ declare global {
             // Tags and search
             getTags: () => Promise<TagInfo[]>;
             getImagesByTag: (tag: string) => Promise<LibraryImage[]>;
+            getImageTagsByPath: (filePath: string) => Promise<{ tag: string; score: number; category: string | null }[]>;
             search: (query: string) => Promise<SearchResult[]>;
         };
     }

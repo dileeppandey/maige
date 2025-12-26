@@ -135,6 +135,7 @@ function App() {
             presets={presets}
             onApplyPreset={handleApplyPreset}
             onSavePreset={handleSavePreset}
+            selectedImagePath={selectedFile?.path}
           />
         }
       />

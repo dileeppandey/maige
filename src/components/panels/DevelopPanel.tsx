@@ -1,4 +1,5 @@
-import { ChevronDown, Copy, ClipboardPaste, RotateCcw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronDown, Copy, ClipboardPaste, RotateCcw, Tag } from 'lucide-react'
 import { LightPanel } from '../adjustments/LightPanel'
 import type { LightAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types'
 
@@ -12,6 +13,13 @@ interface DevelopPanelProps {
     presets: StylePreset[]
     onApplyPreset: (presetId: string) => void
     onSavePreset: (name: string) => void
+    selectedImagePath?: string | null
+}
+
+interface ImageTagInfo {
+    tag: string
+    score: number
+    category: string | null
 }
 
 export function DevelopPanel({
@@ -23,8 +31,28 @@ export function DevelopPanel({
     hasClipboard,
     presets,
     onApplyPreset,
-    onSavePreset
+    onSavePreset,
+    selectedImagePath
 }: DevelopPanelProps) {
+    const [imageTags, setImageTags] = useState<ImageTagInfo[]>([])
+
+    // Fetch tags when selected image changes
+    useEffect(() => {
+        const loadTags = async () => {
+            if (!selectedImagePath) {
+                setImageTags([])
+                return
+            }
+            try {
+                const tags = await window.electronAPI.getImageTagsByPath(selectedImagePath)
+                setImageTags(tags)
+            } catch {
+                setImageTags([])
+            }
+        }
+        loadTags()
+    }, [selectedImagePath])
+
     const handleSavePreset = () => {
         const name = prompt('Enter preset name:')
         if (name && name.trim()) {
@@ -67,6 +95,27 @@ export function DevelopPanel({
                 <div className="h-32 bg-[#1a1a1a] rounded mb-6 border border-[#333333] flex items-center justify-center text-xs text-gray-600">
                     Histogram
                 </div>
+
+                {/* AI Tags Section */}
+                {imageTags.length > 0 && (
+                    <div className="mb-6">
+                        <div className="flex items-center gap-1 text-xs font-semibold text-gray-400 uppercase mb-2">
+                            <Tag size={12} />
+                            <span>AI Tags</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {imageTags.map((tag, idx) => (
+                                <span
+                                    key={idx}
+                                    className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-300 rounded border border-blue-500/30"
+                                    title={`Confidence: ${Math.round(tag.score * 100)}%`}
+                                >
+                                    {tag.tag}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Presets Dropdown */}
                 {presets.length > 0 && (
@@ -117,3 +166,4 @@ export function DevelopPanel({
         </div>
     )
 }
+
