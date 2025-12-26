@@ -142,3 +142,67 @@ export type SearchResult = {
     file_path: string;
     similarity: number;
 };
+
+// ============================================
+// Face Recognition Types (Phase 3)
+// ============================================
+
+// Face detection input (from MediaPipe)
+export type FaceDetection = {
+    bbox: { x: number; y: number; width: number; height: number };
+    keypoints?: { x: number; y: number; name: string }[];
+    confidence: number;
+};
+
+// Face record from database
+export type FaceRecord = {
+    id: number;
+    image_id: number;
+    bbox_x: number;
+    bbox_y: number;
+    bbox_w: number;
+    bbox_h: number;
+    person_id: number | null;
+    person_name?: string;
+    confidence: number | null;
+    created_at: string;
+    file_path?: string;
+};
+
+// Person record
+export type PersonRecord = {
+    id: number;
+    name: string;
+    face_count: number;
+    representative_face_id: number | null;
+    is_hidden: boolean;
+    created_at: string;
+};
+
+// Face cluster (for organizing unidentified faces)
+export type FaceCluster = {
+    centroidFaceId: number;
+    faceIds: number[];
+    suggestedName?: string;
+};
+
+// Suggested face match
+export type SuggestedMatch = {
+    personId: number;
+    personName: string;
+    similarity: number;
+};
+
+// Face detection result from processing
+export type FaceDetectionResult = {
+    faceId: number;
+    suggestedMatch: SuggestedMatch | null;
+};
+
+// Face statistics
+export type FaceStats = {
+    totalFaces: number;
+    identifiedFaces: number;
+    unidentifiedFaces: number;
+    totalPeople: number;
+};

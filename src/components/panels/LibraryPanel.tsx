@@ -26,6 +26,8 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         clearSearch,
         filterByTag,
         showAllPhotos,
+        showPeople,
+        showDuplicates,
     } = useLibraryStore()
 
     const [localQuery, setLocalQuery] = useState('')
@@ -197,8 +199,8 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                             showAllPhotos()
                         }}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'library' && !searchQuery
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-300 hover:bg-[#333333]'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-300 hover:bg-[#333333]'
                             }`}
                     >
                         <Images size={14} className={viewMode === 'library' && !searchQuery ? 'text-white' : 'text-gray-500'} />
@@ -208,12 +210,33 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
 
                     {/* Duplicates */}
                     {stats.duplicateGroups > 0 && (
-                        <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-[#333333] rounded cursor-pointer">
-                            <Copy size={14} className="text-orange-500" />
+                        <button
+                            onClick={() => showDuplicates()}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'duplicates'
+                                ? 'bg-orange-600 text-white'
+                                : 'text-gray-300 hover:bg-[#333333]'
+                                }`}
+                        >
+                            <Copy size={14} className={viewMode === 'duplicates' ? 'text-white' : 'text-orange-500'} />
                             <span>Duplicates</span>
-                            <span className="ml-auto text-xs text-orange-500">{stats.duplicateGroups}</span>
-                        </div>
+                            <span className={`ml-auto text-xs ${viewMode === 'duplicates' ? 'text-orange-200' : 'text-orange-500'}`}>{stats.duplicateGroups}</span>
+                        </button>
                     )}
+
+                    {/* People */}
+                    <button
+                        onClick={() => showPeople()}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'people'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-300 hover:bg-[#333333]'
+                            }`}
+                    >
+                        <svg className={`w-3.5 h-3.5 ${viewMode === 'people' ? 'text-white' : 'text-purple-400'}`} viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                        <span>People</span>
+                        <span className={`ml-auto text-xs ${viewMode === 'people' ? 'text-purple-200' : 'text-purple-400'}`}>New</span>
+                    </button>
                 </div>
 
                 {/* Tags Section */}
@@ -232,8 +255,8 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                                         filterByTag(tag.tag)
                                     }}
                                     className={`px-2 py-0.5 text-xs rounded transition-colors ${viewMode === 'tag' && searchQuery === tag.tag
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-[#333333] hover:bg-[#444444] text-gray-300'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-[#333333] hover:bg-[#444444] text-gray-300'
                                         }`}
                                 >
                                     {tag.tag}

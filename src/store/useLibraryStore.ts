@@ -8,8 +8,8 @@ interface LibraryState {
     stats: LibraryStats;
     tags: TagInfo[];
 
-    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter
-    viewMode: 'folder' | 'library' | 'search' | 'tag';
+    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups
+    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates';
 
     // Search state
     searchQuery: string;
@@ -31,6 +31,8 @@ interface LibraryState {
     clearSearch: () => void;
     filterByTag: (tagName: string) => Promise<void>;
     showAllPhotos: () => Promise<void>;
+    showPeople: () => void;
+    showDuplicates: () => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -173,6 +175,21 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             });
         } catch (error) {
             console.error('Failed to load all photos:', error);
+        }
+    },
+
+    // Show people panel
+    showPeople: () => {
+        set({ viewMode: 'people', searchQuery: '', searchResults: [] });
+    },
+
+    // Show duplicates view
+    showDuplicates: async () => {
+        try {
+            await get().loadDuplicates();
+            set({ viewMode: 'duplicates', searchQuery: '', searchResults: [] });
+        } catch (error) {
+            console.error('Failed to show duplicates:', error);
         }
     },
 }));

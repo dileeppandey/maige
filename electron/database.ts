@@ -113,6 +113,50 @@ function createSchema(db: Database.Database): void {
         )
     `);
 
+    // ============================================
+    // Face Recognition Tables (Phase 3)
+    // ============================================
+
+    // Named people (user-labeled)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            representative_face_id INTEGER,
+            anchor_embedding BLOB,
+            is_hidden BOOLEAN DEFAULT FALSE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Detected faces (multiple per image)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS faces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            image_id INTEGER NOT NULL REFERENCES images(id) ON DELETE CASCADE,
+            bbox_x REAL NOT NULL,
+            bbox_y REAL NOT NULL,
+            bbox_w REAL NOT NULL,
+            bbox_h REAL NOT NULL,
+            embedding BLOB,
+            person_id INTEGER REFERENCES people(id) ON DELETE SET NULL,
+            confidence REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Face corrections for training
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS face_corrections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            face_id INTEGER REFERENCES faces(id) ON DELETE CASCADE,
+            action TEXT NOT NULL,
+            from_person_id INTEGER,
+            to_person_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     // Create indexes
     db.exec(`
         CREATE INDEX IF NOT EXISTS idx_images_phash ON images(phash);
@@ -121,6 +165,8 @@ function createSchema(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
         CREATE INDEX IF NOT EXISTS idx_image_tags_image ON image_tags(image_id);
         CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
+        CREATE INDEX IF NOT EXISTS idx_faces_image ON faces(image_id);
+        CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
     `);
 }
 
@@ -247,12 +293,56 @@ export function getLibraryStats(): { totalImages: number; duplicateGroups: numbe
     const db = getDatabase();
 
     const imageCount = db.prepare('SELECT COUNT(*) as count FROM images').get() as { count: number };
-    const duplicateCount = db.prepare('SELECT COUNT(*) as count FROM duplicate_groups').get() as { count: number };
+
+    // Count only groups that have 2 or more members (actual duplicates)
+    const duplicateCount = db.prepare(`
+        SELECT COUNT(*) as count 
+        FROM duplicate_groups dg
+        WHERE (
+            SELECT COUNT(*) 
+            FROM duplicate_members dm 
+            WHERE dm.group_id = dg.id
+        ) >= 2
+    `).get() as { count: number };
 
     return {
         totalImages: imageCount.count,
         duplicateGroups: duplicateCount.count,
     };
+}
+
+/**
+ * Delete images from the library (database only, not filesystem)
+ * Also removes associated faces, tags, and duplicate group memberships
+ */
+export function deleteImagesFromLibrary(imageIds: number[]): { deletedCount: number } {
+    const db = getDatabase();
+
+    if (imageIds.length === 0) {
+        return { deletedCount: 0 };
+    }
+
+    const placeholders = imageIds.map(() => '?').join(',');
+
+    // Delete faces associated with these images
+    db.prepare(`DELETE FROM faces WHERE image_id IN (${placeholders})`).run(...imageIds);
+
+    // Delete image tags
+    db.prepare(`DELETE FROM image_tags WHERE image_id IN (${placeholders})`).run(...imageIds);
+
+    // Delete from duplicate members
+    db.prepare(`DELETE FROM duplicate_members WHERE image_id IN (${placeholders})`).run(...imageIds);
+
+    // Delete empty duplicate groups
+    db.prepare(`
+        DELETE FROM duplicate_groups 
+        WHERE id NOT IN (SELECT DISTINCT group_id FROM duplicate_members)
+    `).run();
+
+    // Delete the images
+    const result = db.prepare(`DELETE FROM images WHERE id IN (${placeholders})`).run(...imageIds);
+
+    return { deletedCount: result.changes };
 }
 
 // ============================================
@@ -324,22 +414,25 @@ export function createDuplicateGroups(): number {
 
 /**
  * Get all duplicate groups with their images
+ * Only returns groups that have 2 or more images (actual duplicates)
  */
 export function getDuplicateGroups(): { groupId: number; images: ImageRecord[] }[] {
     const db = getDatabase();
 
     const groups = db.prepare('SELECT id FROM duplicate_groups').all() as { id: number }[];
 
-    return groups.map(group => {
-        const images = db.prepare(`
-            SELECT i.* FROM images i
-            JOIN duplicate_members dm ON dm.image_id = i.id
-            WHERE dm.group_id = ?
-            ORDER BY dm.is_primary DESC
-        `).all(group.id) as ImageRecord[];
+    return groups
+        .map(group => {
+            const images = db.prepare(`
+                SELECT i.* FROM images i
+                JOIN duplicate_members dm ON dm.image_id = i.id
+                WHERE dm.group_id = ?
+                ORDER BY dm.is_primary DESC
+            `).all(group.id) as ImageRecord[];
 
-        return { groupId: group.id, images };
-    });
+            return { groupId: group.id, images };
+        })
+        .filter(group => group.images.length >= 2); // Only return groups with 2+ images
 }
 
 // ============================================
@@ -478,4 +571,290 @@ export function getImagesWithEmbeddings(): { id: number; file_path: string; embe
             embedding: Array.from(float32),
         };
     });
+}
+
+// ============================================
+// Face Operations (Phase 3)
+// ============================================
+
+export interface FaceRecord {
+    id: number;
+    image_id: number;
+    bbox_x: number;
+    bbox_y: number;
+    bbox_w: number;
+    bbox_h: number;
+    embedding: Buffer | null;
+    person_id: number | null;
+    confidence: number | null;
+    created_at: string;
+}
+
+export interface PersonRecord {
+    id: number;
+    name: string;
+    representative_face_id: number | null;
+    anchor_embedding: Buffer | null;
+    is_hidden: boolean;
+    created_at: string;
+}
+
+/**
+ * Insert a detected face
+ */
+export function insertFace(
+    imageId: number,
+    bbox: { x: number; y: number; w: number; h: number },
+    confidence: number,
+    embedding?: number[]
+): number {
+    const db = getDatabase();
+
+    const embeddingBuffer = embedding
+        ? Buffer.from(new Float32Array(embedding).buffer)
+        : null;
+
+    const result = db.prepare(`
+        INSERT INTO faces (image_id, bbox_x, bbox_y, bbox_w, bbox_h, confidence, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(imageId, bbox.x, bbox.y, bbox.w, bbox.h, confidence, embeddingBuffer);
+
+    return result.lastInsertRowid as number;
+}
+
+/**
+ * Get all faces for an image
+ */
+export function getFacesForImage(imageId: number): (FaceRecord & { person_name?: string })[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT f.*, p.name as person_name
+        FROM faces f
+        LEFT JOIN people p ON f.person_id = p.id
+        WHERE f.image_id = ?
+    `).all(imageId) as (FaceRecord & { person_name?: string })[];
+}
+
+/**
+ * Get face embedding as array
+ */
+export function getFaceEmbedding(faceId: number): number[] | null {
+    const db = getDatabase();
+
+    const row = db.prepare('SELECT embedding FROM faces WHERE id = ?').get(faceId) as { embedding: Buffer | null } | undefined;
+
+    if (!row?.embedding) return null;
+
+    const float32 = new Float32Array(row.embedding.buffer, row.embedding.byteOffset, row.embedding.length / 4);
+    return Array.from(float32);
+}
+
+/**
+ * Update face embedding
+ */
+export function updateFaceEmbedding(faceId: number, embedding: number[]): void {
+    const db = getDatabase();
+    const buffer = Buffer.from(new Float32Array(embedding).buffer);
+    db.prepare('UPDATE faces SET embedding = ? WHERE id = ?').run(buffer, faceId);
+}
+
+/**
+ * Assign face to a person
+ */
+export function assignFaceToPerson(faceId: number, personId: number): void {
+    const db = getDatabase();
+
+    // Get current person_id for logging
+    const face = db.prepare('SELECT person_id FROM faces WHERE id = ?').get(faceId) as { person_id: number | null } | undefined;
+    const fromPersonId = face?.person_id ?? null;
+
+    // Update face
+    db.prepare('UPDATE faces SET person_id = ? WHERE id = ?').run(personId, faceId);
+
+    // Log correction
+    db.prepare(`
+        INSERT INTO face_corrections (face_id, action, from_person_id, to_person_id)
+        VALUES (?, ?, ?, ?)
+    `).run(faceId, fromPersonId ? 'reassign' : 'confirm', fromPersonId, personId);
+}
+
+/**
+ * Get all unidentified faces (no person assigned)
+ */
+export function getUnidentifiedFaces(): (FaceRecord & { file_path: string })[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT f.*, i.file_path
+        FROM faces f
+        JOIN images i ON f.image_id = i.id
+        WHERE f.person_id IS NULL
+        ORDER BY f.created_at DESC
+    `).all() as (FaceRecord & { file_path: string })[];
+}
+
+// ============================================
+// People Operations (Phase 3)
+// ============================================
+
+/**
+ * Create a new person
+ */
+export function createPerson(name: string, representativeFaceId?: number): number {
+    const db = getDatabase();
+
+    const result = db.prepare(`
+        INSERT INTO people (name, representative_face_id)
+        VALUES (?, ?)
+    `).run(name, representativeFaceId ?? null);
+
+    return result.lastInsertRowid as number;
+}
+
+/**
+ * Get all people with face counts
+ */
+export function getAllPeople(): (PersonRecord & { face_count: number })[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT p.*, COUNT(DISTINCT f.image_id) as face_count
+        FROM people p
+        LEFT JOIN faces f ON f.person_id = p.id
+        WHERE p.is_hidden = FALSE
+        GROUP BY p.id
+        ORDER BY face_count DESC
+    `).all() as (PersonRecord & { face_count: number })[];
+}
+
+/**
+ * Get person by ID
+ */
+export function getPersonById(personId: number): PersonRecord | undefined {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM people WHERE id = ?').get(personId) as PersonRecord | undefined;
+}
+
+/**
+ * Get person by name (case-insensitive)
+ */
+export function getPersonByName(name: string): PersonRecord | undefined {
+    const db = getDatabase();
+    return db.prepare('SELECT * FROM people WHERE LOWER(name) = LOWER(?) AND is_hidden = FALSE').get(name) as PersonRecord | undefined;
+}
+
+/**
+ * Update person name
+ */
+export function updatePersonName(personId: number, name: string): void {
+    const db = getDatabase();
+    db.prepare('UPDATE people SET name = ? WHERE id = ?').run(name, personId);
+}
+
+/**
+ * Update person's anchor embedding (average of all face embeddings)
+ */
+export function updatePersonAnchorEmbedding(personId: number, embedding: number[]): void {
+    const db = getDatabase();
+    const buffer = Buffer.from(new Float32Array(embedding).buffer);
+    db.prepare('UPDATE people SET anchor_embedding = ? WHERE id = ?').run(buffer, personId);
+}
+
+/**
+ * Get person's anchor embedding
+ */
+export function getPersonAnchorEmbedding(personId: number): number[] | null {
+    const db = getDatabase();
+
+    const row = db.prepare('SELECT anchor_embedding FROM people WHERE id = ?').get(personId) as { anchor_embedding: Buffer | null } | undefined;
+
+    if (!row?.anchor_embedding) return null;
+
+    const float32 = new Float32Array(row.anchor_embedding.buffer, row.anchor_embedding.byteOffset, row.anchor_embedding.length / 4);
+    return Array.from(float32);
+}
+
+/**
+ * Get all images containing a specific person
+ */
+export function getImagesByPerson(personId: number): ImageRecord[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT DISTINCT i.* FROM images i
+        JOIN faces f ON f.image_id = i.id
+        WHERE f.person_id = ?
+        ORDER BY i.date_taken DESC
+    `).all(personId) as ImageRecord[];
+}
+
+/**
+ * Get all people with embeddings for matching
+ */
+export function getPeopleWithEmbeddings(): { id: number; name: string; embedding: number[] }[] {
+    const db = getDatabase();
+
+    const rows = db.prepare(`
+        SELECT id, name, anchor_embedding
+        FROM people
+        WHERE anchor_embedding IS NOT NULL AND is_hidden = FALSE
+    `).all() as { id: number; name: string; anchor_embedding: Buffer }[];
+
+    return rows.map(row => {
+        const float32 = new Float32Array(row.anchor_embedding.buffer, row.anchor_embedding.byteOffset, row.anchor_embedding.length / 4);
+        return {
+            id: row.id,
+            name: row.name,
+            embedding: Array.from(float32),
+        };
+    });
+}
+
+/**
+ * Set representative face for a person
+ */
+export function setRepresentativeFace(personId: number, faceId: number): void {
+    const db = getDatabase();
+    db.prepare('UPDATE people SET representative_face_id = ? WHERE id = ?').run(faceId, personId);
+}
+
+/**
+ * Hide/unhide a person
+ */
+export function setPersonHidden(personId: number, hidden: boolean): void {
+    const db = getDatabase();
+    db.prepare('UPDATE people SET is_hidden = ? WHERE id = ?').run(hidden ? 1 : 0, personId);
+}
+
+/**
+ * Clean up duplicate face entries.
+ * Keeps only one face per image_id (the one with the lowest id, which was first inserted).
+ * Returns the number of duplicates removed.
+ */
+export function cleanupDuplicateFaces(): { duplicatesRemoved: number; imagesAffected: number } {
+    const db = getDatabase();
+
+    // Find images that have more than one face entry (duplicates)
+    const duplicates = db.prepare(`
+        SELECT image_id, COUNT(*) as cnt, MIN(id) as keep_id
+        FROM faces
+        GROUP BY image_id
+        HAVING COUNT(*) > 1
+    `).all() as { image_id: number; cnt: number; keep_id: number }[];
+
+    let duplicatesRemoved = 0;
+
+    for (const dup of duplicates) {
+        // Delete all faces for this image except the one with lowest id
+        const result = db.prepare(`
+            DELETE FROM faces 
+            WHERE image_id = ? AND id != ?
+        `).run(dup.image_id, dup.keep_id);
+
+        duplicatesRemoved += result.changes;
+    }
+
+    console.log(`Cleaned up ${duplicatesRemoved} duplicate faces across ${duplicates.length} images`);
+    return { duplicatesRemoved, imagesAffected: duplicates.length };
 }

@@ -2,13 +2,26 @@ import React, { useEffect, useMemo } from 'react'
 import type { FileInfo, LightAdjustments } from '../shared/types'
 import { LibraryPanel } from './components/panels/LibraryPanel'
 import { DevelopPanel } from './components/panels/DevelopPanel'
+import { PeoplePanel } from './components/panels/PeoplePanel'
+import { DuplicatesPanel } from './components/panels/DuplicatesPanel'
 import { Filmstrip } from './components/panels/Filmstrip'
 import { ImagePreview } from './components/layout/ImagePreview'
 import { ResizableLayout } from './components/layout/ResizableLayout'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
+import { useFaceDetection } from './hooks/useFaceDetection'
 
 function App() {
+  // Initialize face detection processing (runs in background after imports)
+  const faceDetectionStatus = useFaceDetection()
+
+  // Log face detection progress
+  useEffect(() => {
+    if (faceDetectionStatus.isProcessing) {
+      console.log(`Face detection: ${faceDetectionStatus.current}/${faceDetectionStatus.total} - ${faceDetectionStatus.currentFile}`)
+    }
+  }, [faceDetectionStatus])
+
   // Get state and actions from the edit store
   const {
     selectedPath,
@@ -25,15 +38,42 @@ function App() {
   } = useEditStore()
 
   // Get search state from library store
-  const { searchResults, viewMode } = useLibraryStore()
+  const { searchResults, viewMode, showAllPhotos } = useLibraryStore()
 
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
   const [files, setFiles] = React.useState<FileInfo[]>([])
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
+  const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
+  const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
 
-  // Compute display files: search/library results or folder files
+  // Handle person selection - load their photos
+  const handleSelectPerson = async (personId: number) => {
+    setSelectedPersonId(personId)
+    try {
+      const images = await window.electronAPI.getImagesByPerson(personId)
+      const fileInfos: FileInfo[] = images.map(img => ({
+        name: img.file_path.split('/').pop() || '',
+        path: img.file_path,
+        isDirectory: false,
+        type: 'image' as const,
+      }))
+      setPersonFiles(fileInfos)
+      // Select first photo if available
+      if (fileInfos.length > 0) {
+        setSelectedFile(fileInfos[0])
+      }
+    } catch (error) {
+      console.error('Failed to load person images:', error)
+    }
+  }
+
+  // Compute display files: person files, search/library results, or folder files
   const displayFiles = useMemo<FileInfo[]>(() => {
+    // If person is selected, show their photos
+    if (viewMode === 'people' && selectedPersonId && personFiles.length > 0) {
+      return personFiles
+    }
     // Show search results for search, tag filter, or library view modes
     if ((viewMode === 'library' || viewMode === 'search' || viewMode === 'tag') && searchResults.length > 0) {
       // Convert search results to FileInfo format
@@ -45,12 +85,19 @@ function App() {
       }))
     }
     return files
-  }, [viewMode, searchResults, files])
+  }, [viewMode, searchResults, files, selectedPersonId, personFiles])
 
   // Sync selected file with edit store
   useEffect(() => {
     setSelectedPath(selectedFile?.path ?? null)
   }, [selectedFile, setSelectedPath])
+
+  // Listen for showLibrary event from PeoplePanel back button
+  useEffect(() => {
+    const handleShowLibrary = () => showAllPhotos()
+    window.addEventListener('showLibrary', handleShowLibrary)
+    return () => window.removeEventListener('showLibrary', handleShowLibrary)
+  }, [showAllPhotos])
 
   const handleOpenFolder = async () => {
     try {
@@ -112,11 +159,29 @@ function App() {
       {/* Top Main Area (Columns) */}
       <ResizableLayout
         leftPanel={
-          <LibraryPanel
-            currentPath={currentPath}
-            files={files}
-            onOpenFolder={handleOpenFolder}
-          />
+          viewMode === 'people' ? (
+            <PeoplePanel
+              onSelectPerson={handleSelectPerson}
+              selectedPersonId={selectedPersonId}
+            />
+          ) : viewMode === 'duplicates' ? (
+            <DuplicatesPanel
+              onSelectImage={(path) => {
+                setSelectedFile({
+                  name: path.split('/').pop() || '',
+                  path,
+                  isDirectory: false,
+                  type: 'image',
+                })
+              }}
+            />
+          ) : (
+            <LibraryPanel
+              currentPath={currentPath}
+              files={files}
+              onOpenFolder={handleOpenFolder}
+            />
+          )
         }
         centerPanel={
           <ImagePreview

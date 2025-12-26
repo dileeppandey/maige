@@ -184,6 +184,25 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
             }
         }
 
+        // Step 6: Face Detection
+        // Note: MediaPipe runs in renderer. We'll request the renderer to detect faces
+        // and send results back via IPC. For now, send a notification to trigger detection.
+        mainWindow?.webContents.send('library:importProgress', {
+            phase: 'face_detection',
+            current: 0,
+            total: analyzed.length,
+            file: '',
+        });
+
+        // Send message to renderer to start face detection on imported images
+        // The renderer will use MediaPipe and call back with results
+        mainWindow?.webContents.send('library:startFaceDetection', {
+            imagePaths: analyzed.map(img => ({
+                filePath: img.filePath,
+                fileName: img.fileName,
+            })),
+        });
+
         mainWindow?.webContents.send('library:importProgress', {
             phase: 'complete',
             current: analyzed.length,
@@ -270,6 +289,51 @@ ipcMain.handle('library:getImagesByTag', async (_, tagName: string) => {
 });
 
 /**
+ * Delete images from library (and optionally from filesystem)
+ */
+ipcMain.handle('library:deleteImages', async (_, imageIds: number[], deleteFromDisk: boolean = true) => {
+    try {
+        const { deleteImagesFromLibrary } = await import('./database.js');
+        const fs = await import('fs/promises');
+        const { getDatabase } = await import('./database.js');
+        const db = getDatabase();
+
+        // Get file paths before deletion
+        const pathsToDelete: string[] = [];
+        if (deleteFromDisk) {
+            const placeholders = imageIds.map(() => '?').join(',');
+            const images = db.prepare(`SELECT file_path FROM images WHERE id IN (${placeholders})`).all(...imageIds) as { file_path: string }[];
+            pathsToDelete.push(...images.map(img => img.file_path));
+        }
+
+        // Delete from database
+        const result = deleteImagesFromLibrary(imageIds);
+
+        // Delete from filesystem if requested
+        let filesDeleted = 0;
+        if (deleteFromDisk) {
+            for (const filePath of pathsToDelete) {
+                try {
+                    await fs.unlink(filePath);
+                    filesDeleted++;
+                } catch (err) {
+                    console.error(`Failed to delete file ${filePath}:`, err);
+                }
+            }
+        }
+
+        return {
+            success: true,
+            deletedFromDb: result.deletedCount,
+            deletedFromDisk: filesDeleted
+        };
+    } catch (error) {
+        console.error('Failed to delete images:', error);
+        return { success: false, error: String(error) };
+    }
+});
+
+/**
  * Semantic search by text query
  */
 ipcMain.handle('library:search', async (_, query: string) => {
@@ -321,6 +385,247 @@ ipcMain.handle('library:getImageTagsByPath', async (_, filePath: string) => {
     } catch (error) {
         console.error('Failed to get image tags:', error);
         return [];
+    }
+});
+
+// ============================================
+// Face Recognition IPC Handlers (Phase 3)
+// ============================================
+
+/**
+ * Process face detections from MediaPipe (renderer sends results here)
+ */
+ipcMain.handle('faces:saveDetections', async (_, imageId: number, imagePath: string, detections: { bbox: { x: number; y: number; width: number; height: number }; confidence: number }[]) => {
+    try {
+        const { processFaceDetections } = await import('./faceService.js');
+        return await processFaceDetections(imageId, imagePath, detections);
+    } catch (error) {
+        console.error('Failed to save face detections:', error);
+        return [];
+    }
+});
+
+/**
+ * Get faces for an image
+ */
+ipcMain.handle('faces:getForImage', async (_, imageId: number) => {
+    try {
+        const { getFacesForImage } = await import('./database.js');
+        return getFacesForImage(imageId);
+    } catch (error) {
+        console.error('Failed to get faces:', error);
+        return [];
+    }
+});
+
+/**
+ * Get all unidentified faces
+ */
+ipcMain.handle('faces:getUnidentified', async () => {
+    try {
+        const { getUnidentifiedFaces } = await import('./database.js');
+        return getUnidentifiedFaces();
+    } catch (error) {
+        console.error('Failed to get unidentified faces:', error);
+        return [];
+    }
+});
+
+/**
+ * Cluster unidentified faces
+ */
+ipcMain.handle('faces:cluster', async () => {
+    try {
+        const { clusterUnidentifiedFaces } = await import('./faceService.js');
+        return clusterUnidentifiedFaces();
+    } catch (error) {
+        console.error('Failed to cluster faces:', error);
+        return [];
+    }
+});
+
+/**
+ * Get face statistics
+ */
+ipcMain.handle('faces:getStats', async () => {
+    try {
+        const { getFaceStats } = await import('./faceService.js');
+        return getFaceStats();
+    } catch (error) {
+        console.error('Failed to get face stats:', error);
+        return { totalFaces: 0, identifiedFaces: 0, unidentifiedFaces: 0, totalPeople: 0 };
+    }
+});
+
+/**
+ * Clean up duplicate face entries
+ */
+ipcMain.handle('faces:cleanup', async () => {
+    try {
+        const { cleanupDuplicateFaces } = await import('./database.js');
+        return cleanupDuplicateFaces();
+    } catch (error) {
+        console.error('Failed to cleanup duplicate faces:', error);
+        return { duplicatesRemoved: 0, imagesAffected: 0 };
+    }
+});
+
+// ============================================
+// People IPC Handlers (Phase 3)
+// ============================================
+
+/**
+ * Get all people with face counts
+ */
+ipcMain.handle('people:getAll', async () => {
+    try {
+        const { getAllPeople } = await import('./database.js');
+        return getAllPeople();
+    } catch (error) {
+        console.error('Failed to get people:', error);
+        return [];
+    }
+});
+
+/**
+ * Create a new person from an unidentified face
+ */
+ipcMain.handle('people:createFromFace', async (_, faceId: number, name: string) => {
+    try {
+        const { createPersonFromFace } = await import('./faceService.js');
+        return await createPersonFromFace(faceId, name);
+    } catch (error) {
+        console.error('Failed to create person:', error);
+        return null;
+    }
+});
+
+/**
+ * Create a person from a cluster of faces (assigns ALL faces to one person)
+ */
+ipcMain.handle('people:createFromCluster', async (_, faceIds: number[], name: string) => {
+    try {
+        const { createPersonFromCluster } = await import('./faceService.js');
+        return await createPersonFromCluster(faceIds, name);
+    } catch (error) {
+        console.error('Failed to create person from cluster:', error);
+        return null;
+    }
+});
+
+
+/**
+ * Assign a face to an existing person
+ */
+ipcMain.handle('people:assignFace', async (_, faceId: number, personId: number) => {
+    try {
+        const { assignFaceToPerson } = await import('./faceService.js');
+        await assignFaceToPerson(faceId, personId);
+        return true;
+    } catch (error) {
+        console.error('Failed to assign face:', error);
+        return false;
+    }
+});
+
+/**
+ * Get images by person
+ */
+ipcMain.handle('people:getImages', async (_, personId: number) => {
+    try {
+        const { getImagesByPerson } = await import('./database.js');
+        return getImagesByPerson(personId);
+    } catch (error) {
+        console.error('Failed to get images by person:', error);
+        return [];
+    }
+});
+
+/**
+ * Update person name
+ */
+ipcMain.handle('people:updateName', async (_, personId: number, name: string) => {
+    try {
+        const { updatePersonName } = await import('./database.js');
+        updatePersonName(personId, name);
+        return true;
+    } catch (error) {
+        console.error('Failed to update person name:', error);
+        return false;
+    }
+});
+
+/**
+ * Hide/unhide a person
+ */
+ipcMain.handle('people:setHidden', async (_, personId: number, hidden: boolean) => {
+    try {
+        const { setPersonHidden } = await import('./database.js');
+        setPersonHidden(personId, hidden);
+        return true;
+    } catch (error) {
+        console.error('Failed to set person hidden:', error);
+        return false;
+    }
+});
+
+/**
+ * Get a cropped face thumbnail as base64 data URL
+ */
+ipcMain.handle('faces:getThumbnail', async (_, faceId: number) => {
+    try {
+        const { getDatabase } = await import('./database.js');
+        const db = getDatabase();
+
+        // Get face and associated image path
+        const face = db.prepare(`
+            SELECT f.*, i.file_path
+            FROM faces f
+            JOIN images i ON f.image_id = i.id
+            WHERE f.id = ?
+        `).get(faceId) as {
+            bbox_x: number;
+            bbox_y: number;
+            bbox_w: number;
+            bbox_h: number;
+            file_path: string;
+        } | undefined;
+
+        if (!face) {
+            return null;
+        }
+
+        // Crop the face from the image
+        const image = sharp(face.file_path);
+        const metadata = await image.metadata();
+
+        if (!metadata.width || !metadata.height) {
+            return null;
+        }
+
+        // Convert normalized coords to pixels with padding
+        const padding = 0.15;
+        const left = Math.max(0, Math.floor((face.bbox_x - padding) * metadata.width));
+        const top = Math.max(0, Math.floor((face.bbox_y - padding) * metadata.height));
+        const width = Math.min(
+            metadata.width - left,
+            Math.floor((face.bbox_w + padding * 2) * metadata.width)
+        );
+        const height = Math.min(
+            metadata.height - top,
+            Math.floor((face.bbox_h + padding * 2) * metadata.height)
+        );
+
+        const buffer = await image
+            .extract({ left, top, width, height })
+            .resize(80, 80, { fit: 'cover' })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+
+        return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+    } catch (error) {
+        console.error('Failed to get face thumbnail:', error);
+        return null;
     }
 });
 

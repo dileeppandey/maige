@@ -32,7 +32,7 @@ A feature that allows users to provide a folder and automatically:
 │                                                                   │
 │  Image Analysis Pipeline                                         │
 │  ├── CLIP Model (General scene/object understanding)            │
-│  ├── InsightFace (Face detection & recognition)                 │
+│  ├── MediaPipe (Face detection & recognition)                   │
 │  ├── Perceptual Hashing (Duplicate detection)                   │
 │  └── EXIF Extraction (Date, location, camera)                   │
 │                                                                   │
@@ -67,7 +67,7 @@ A feature that allows users to provide a folder and automatically:
 | **Speed on M1** | ~50-100ms per image |
 | **User training** | Can fine-tune with user's labeled examples |
 
-### 2. InsightFace — Face Recognition
+### 2. MediaPipe — Face Recognition
 
 | Aspect | Details |
 |--------|---------|
@@ -90,7 +90,7 @@ A feature that allows users to provide a folder and automatically:
 | Purpose | Package | Notes |
 |---------|---------|-------|
 | CLIP inference | `@xenova/transformers` | Pure JS, works in Node.js |
-| Face detection | `@vladmandic/face-api` | Node.js face detection/recognition |
+| Face detection | `@mediapipe/tasks-vision` | Google's highly optimized face detection |
 | ONNX Runtime | `onnxruntime-node` | Native, uses Apple Neural Engine |
 | Perceptual hash | `imghash` + `sharp` | Fast duplicate detection |
 | Database | `better-sqlite3` | Embeddings + metadata storage |
@@ -534,5 +534,5 @@ async function semanticSearch(query: string, limit = 20) {
 
 - [CLIP by OpenAI](https://openai.com/research/clip)
 - [Transformers.js](https://huggingface.co/docs/transformers.js)
-- [InsightFace](https://insightface.ai/)
+- [MediaPipe](https://developers.google.com/mediapipe)
 - [ONNX Runtime](https://onnxruntime.ai/)
