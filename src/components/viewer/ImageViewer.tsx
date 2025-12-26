@@ -1,25 +1,28 @@
 import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
 import { ZoomIn, ZoomOut, Maximize, Square, Hand } from 'lucide-react'
+import { useCanvasProcessor } from '../../hooks/useCanvasProcessor'
+import type { ImageAdjustments } from '../../../shared/types'
+import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 
 interface ImageViewerProps {
     src: string
-    alt?: string
+    adjustments?: ImageAdjustments
 }
 
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
 const ZOOM_STEP = 0.25
 
-export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
+export function ImageViewer({
+    src,
+    adjustments = DEFAULT_IMAGE_ADJUSTMENTS
+}: ImageViewerProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
-    const imageRef = useRef<HTMLImageElement>(null)
 
     const [zoom, setZoom] = useState(1)
     const [fitZoom, setFitZoom] = useState(1)
     const [isFitMode, setIsFitMode] = useState(true)
-    const [imageLoaded, setImageLoaded] = useState(false)
-    const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 })
 
     // Hand tool state
     const [isHandToolActive, setIsHandToolActive] = useState(false)
@@ -27,34 +30,31 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
     const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
 
+    // Canvas processor hook
+    const { canvasRef, isLoading, error, dimensions } = useCanvasProcessor({
+        src,
+        adjustments
+    })
+
+    const { width: naturalWidth, height: naturalHeight } = dimensions
+
     // Calculate fit zoom based on container and image dimensions
     const calculateFitZoom = useCallback(() => {
-        if (!containerRef.current || naturalSize.width === 0) return 1
+        if (!containerRef.current || naturalWidth === 0) return 1
 
         const container = containerRef.current.getBoundingClientRect()
         const padding = 32 // 16px padding on each side
 
-        const scaleX = (container.width - padding) / naturalSize.width
-        const scaleY = (container.height - padding) / naturalSize.height
+        const scaleX = (container.width - padding) / naturalWidth
+        const scaleY = (container.height - padding) / naturalHeight
 
         // Fit to container but never scale above 100%
         return Math.min(scaleX, scaleY, 1)
-    }, [naturalSize])
-
-    // Handle image load
-    const handleImageLoad = useCallback(() => {
-        if (!imageRef.current) return
-
-        setNaturalSize({
-            width: imageRef.current.naturalWidth,
-            height: imageRef.current.naturalHeight
-        })
-        setImageLoaded(true)
-    }, [])
+    }, [naturalWidth, naturalHeight])
 
     // Update fit zoom when container resizes or image loads
     useEffect(() => {
-        if (!imageLoaded) return
+        if (naturalWidth === 0) return
 
         const newFitZoom = calculateFitZoom()
         setFitZoom(newFitZoom)
@@ -62,7 +62,7 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
         if (isFitMode) {
             setZoom(newFitZoom)
         }
-    }, [imageLoaded, naturalSize, calculateFitZoom, isFitMode])
+    }, [naturalWidth, naturalHeight, calculateFitZoom, isFitMode])
 
     // Watch container resize
     useEffect(() => {
@@ -85,8 +85,6 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
     // Reset when src changes
     useEffect(() => {
         setIsFitMode(true)
-        setImageLoaded(false)
-        setNaturalSize({ width: 0, height: 0 })
     }, [src])
 
     // Zoom with constraints
@@ -151,8 +149,8 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
         if (scrollContainerRef.current && containerRef.current) {
             const container = containerRef.current.getBoundingClientRect()
             const scrollContainer = scrollContainerRef.current
-            scrollContainer.scrollLeft = Math.max(0, (naturalSize.width - container.width) / 2)
-            scrollContainer.scrollTop = Math.max(0, (naturalSize.height - container.height) / 2)
+            scrollContainer.scrollLeft = Math.max(0, (naturalWidth - container.width) / 2)
+            scrollContainer.scrollTop = Math.max(0, (naturalHeight - container.height) / 2)
         }
     }
 
@@ -210,8 +208,8 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
     }
 
     const zoomPercent = Math.round(zoom * 100)
-    const scaledWidth = naturalSize.width * zoom
-    const scaledHeight = naturalSize.height * zoom
+    const scaledWidth = naturalWidth * zoom
+    const scaledHeight = naturalHeight * zoom
 
     return (
         <div ref={containerRef} className="h-full w-full flex flex-col bg-[#1e1e1e] overflow-hidden">
@@ -259,7 +257,7 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
                 </button>
             </div>
 
-            {/* Scrollable Image Container - fixed size, scrolls internally */}
+            {/* Scrollable Canvas Container */}
             <div
                 ref={scrollContainerRef}
                 className="flex-1 overflow-auto"
@@ -270,39 +268,50 @@ export function ImageViewer({ src, alt = '' }: ImageViewerProps) {
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseLeave}
                 style={{
-                    // Custom scrollbar styling via inline for Electron
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#444444 #1a1a1a',
                     cursor: getContainerCursor(),
                 }}
             >
-                {/* Inner container that grows with zoomed image */}
-                <div
-                    className="flex items-center justify-center"
-                    style={{
-                        minWidth: '100%',
-                        minHeight: '100%',
-                        width: scaledWidth > 0 ? Math.max(scaledWidth + 32, 0) : '100%',
-                        height: scaledHeight > 0 ? Math.max(scaledHeight + 32, 0) : '100%',
-                        padding: '16px',
-                    }}
-                >
-                    <img
-                        ref={imageRef}
-                        src={src}
-                        alt={alt}
-                        onLoad={handleImageLoad}
-                        draggable={false}
-                        className="shadow-2xl select-none"
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="text-gray-500">Loading...</div>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="text-red-500">{error}</div>
+                    </div>
+                )}
+
+                {/* Canvas Container */}
+                {!isLoading && !error && (
+                    <div
+                        className="flex items-center justify-center"
                         style={{
-                            width: scaledWidth || 'auto',
-                            height: scaledHeight || 'auto',
-                            maxWidth: 'none',
-                            maxHeight: 'none',
-                            pointerEvents: isHandToolActive ? 'none' : 'auto',
+                            minWidth: '100%',
+                            minHeight: '100%',
+                            width: scaledWidth > 0 ? Math.max(scaledWidth + 32, 0) : '100%',
+                            height: scaledHeight > 0 ? Math.max(scaledHeight + 32, 0) : '100%',
+                            padding: '16px',
                         }}
-                    />
-                </div>
+                    >
+                        <canvas
+                            ref={canvasRef}
+                            className="shadow-2xl select-none"
+                            style={{
+                                width: scaledWidth || 'auto',
+                                height: scaledHeight || 'auto',
+                                maxWidth: 'none',
+                                maxHeight: 'none',
+                                pointerEvents: isHandToolActive ? 'none' : 'auto',
+                            }}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )
