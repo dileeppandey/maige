@@ -18,12 +18,14 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         searchQuery,
         searchResults,
         isSearching,
+        viewMode,
         loadStats,
         loadTags,
         importFolder,
         search,
         clearSearch,
         filterByTag,
+        showAllPhotos,
     } = useLibraryStore()
 
     const [localQuery, setLocalQuery] = useState('')
@@ -118,9 +120,14 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                         <span>Searching...</span>
                     </div>
                 )}
-                {searchResults.length > 0 && (
+                {searchResults.length > 0 && viewMode !== 'library' && (
                     <div className="mt-1 text-xs text-green-400">
                         {searchResults.length} results for "{searchQuery}"
+                    </div>
+                )}
+                {viewMode === 'library' && (
+                    <div className="mt-1 text-xs text-blue-400">
+                        Showing all {searchResults.length} photos
                     </div>
                 )}
             </div>
@@ -184,11 +191,17 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     )}
 
                     {/* All Photos */}
-                    <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-[#333333] rounded cursor-pointer">
+                    <button
+                        onClick={() => {
+                            setLocalQuery('')
+                            showAllPhotos()
+                        }}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-300 hover:bg-[#333333] rounded cursor-pointer text-left ${viewMode === 'library' ? 'bg-[#333333]' : ''}`}
+                    >
                         <Images size={14} className="text-gray-500" />
                         <span>All Photos</span>
                         <span className="ml-auto text-xs text-gray-500">{stats.totalImages}</span>
-                    </div>
+                    </button>
 
                     {/* Duplicates */}
                     {stats.duplicateGroups > 0 && (

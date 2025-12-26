@@ -8,6 +8,9 @@ interface LibraryState {
     stats: LibraryStats;
     tags: TagInfo[];
 
+    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter
+    viewMode: 'folder' | 'library' | 'search' | 'tag';
+
     // Search state
     searchQuery: string;
     searchResults: SearchResult[];
@@ -27,6 +30,7 @@ interface LibraryState {
     search: (query: string) => Promise<void>;
     clearSearch: () => void;
     filterByTag: (tagName: string) => Promise<void>;
+    showAllPhotos: () => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -35,6 +39,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     duplicateGroups: [],
     stats: { totalImages: 0, duplicateGroups: 0 },
     tags: [],
+    viewMode: 'folder',
     searchQuery: '',
     searchResults: [],
     isSearching: false,
@@ -144,10 +149,30 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
                 file_path: img.file_path,
                 similarity: 1.0, // Exact match
             }));
-            set({ searchResults: results, isSearching: false });
+            set({ searchResults: results, isSearching: false, viewMode: 'tag' });
         } catch (error) {
             console.error('Filter by tag failed:', error);
             set({ searchResults: [], isSearching: false });
+        }
+    },
+
+    // Show all library photos
+    showAllPhotos: async () => {
+        try {
+            const images = await window.electronAPI.getLibraryImages();
+            const results = images.map(img => ({
+                id: img.id,
+                file_path: img.file_path,
+                similarity: 1.0,
+            }));
+            set({
+                searchQuery: '',
+                searchResults: results,
+                isSearching: false,
+                viewMode: 'library'
+            });
+        } catch (error) {
+            console.error('Failed to load all photos:', error);
         }
     },
 }));

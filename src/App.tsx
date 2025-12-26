@@ -25,16 +25,17 @@ function App() {
   } = useEditStore()
 
   // Get search state from library store
-  const { searchQuery, searchResults }: { searchQuery: string; searchResults: Array<{ id: number; file_path: string; similarity: number }> } = useLibraryStore()
+  const { searchResults, viewMode } = useLibraryStore()
 
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
   const [files, setFiles] = React.useState<FileInfo[]>([])
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
 
-  // Compute display files: search results or folder files
+  // Compute display files: search/library results or folder files
   const displayFiles = useMemo<FileInfo[]>(() => {
-    if (searchQuery && searchResults.length > 0) {
+    // Show search results for search, tag filter, or library view modes
+    if ((viewMode === 'library' || viewMode === 'search' || viewMode === 'tag') && searchResults.length > 0) {
       // Convert search results to FileInfo format
       return searchResults.map(result => ({
         name: result.file_path.split('/').pop() || '',
@@ -44,7 +45,7 @@ function App() {
       }))
     }
     return files
-  }, [searchQuery, searchResults, files])
+  }, [viewMode, searchResults, files])
 
   // Sync selected file with edit store
   useEffect(() => {
