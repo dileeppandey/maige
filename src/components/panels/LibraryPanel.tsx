@@ -11,6 +11,7 @@ interface LibraryPanelProps {
 
 export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelProps) {
     const {
+        images,
         stats,
         isImporting,
         importProgress,
@@ -49,7 +50,20 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
         }
     }
 
-    // Handle search
+    // Debounced search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localQuery.trim() && localQuery !== searchQuery) {
+                search(localQuery)
+            } else if (!localQuery.trim() && searchQuery) {
+                clearSearch()
+            }
+        }, 500)
+
+        return () => clearTimeout(timer)
+    }, [localQuery, search, clearSearch, searchQuery])
+
+    // Handle search manual trigger (Enter key)
     const handleSearch = () => {
         if (localQuery.trim()) {
             search(localQuery)
@@ -101,12 +115,15 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
                     <input
                         type="text"
-                        placeholder="Search images..."
+                        placeholder="Search images (e.g. 'sunset at beach')..."
                         value={localQuery}
                         onChange={(e) => setLocalQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="w-full pl-8 pr-8 py-1.5 text-sm bg-[#1a1a1a] border border-[#333333] rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        className="w-full pl-8 pr-12 py-1.5 text-xs bg-[#1a1a1a] border border-[#333333] rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
                     />
+                    <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-30" title="AI Search Active">
+                        <Images size={12} className="text-blue-400" />
+                    </div>
                     {(localQuery || searchQuery) && (
                         <button
                             onClick={handleClearSearch}
@@ -117,19 +134,24 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     )}
                 </div>
                 {isSearching && (
-                    <div className="flex items-center gap-2 mt-1 text-xs text-blue-400">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-blue-400 px-2">
                         <Loader2 size={12} className="animate-spin" />
                         <span>Searching...</span>
                     </div>
                 )}
-                {searchResults.length > 0 && viewMode !== 'library' && (
-                    <div className="mt-1 text-xs text-green-400">
+                {!isSearching && searchQuery && searchResults.length === 0 && (viewMode === 'search' || viewMode === 'tag') && (
+                    <div className="mt-1 text-xs text-orange-400 px-2">
+                        No results found for "{searchQuery}"
+                    </div>
+                )}
+                {!isSearching && searchResults.length > 0 && (viewMode === 'search' || viewMode === 'tag') && (
+                    <div className="mt-1 text-xs text-green-400 px-2">
                         {searchResults.length} results for "{searchQuery}"
                     </div>
                 )}
                 {viewMode === 'library' && (
-                    <div className="mt-1 text-xs text-blue-400">
-                        Showing all {searchResults.length} photos
+                    <div className="mt-1 text-xs text-blue-400 px-2">
+                        Showing all {images.length} photos
                     </div>
                 )}
             </div>

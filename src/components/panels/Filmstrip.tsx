@@ -27,6 +27,11 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                             className="w-full h-full object-cover"
                             loading="lazy"
                         />
+                        {file.similarity !== undefined && (
+                            <div className="absolute top-1 left-1 bg-blue-600/80 text-white text-[8px] px-1 rounded font-bold">
+                                {Math.round(file.similarity * 100)}%
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-transparent group-hover:bg-white/5 transition-colors"></div>
                     </div>
                 ))}

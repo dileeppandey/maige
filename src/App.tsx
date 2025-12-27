@@ -82,6 +82,7 @@ function App() {
         path: result.file_path,
         isDirectory: false,
         type: 'image' as const,
+        similarity: result.similarity,
       }))
     }
     return files

@@ -2,7 +2,8 @@ export type FileInfo = {
     name: string;
     path: string;
     isDirectory: boolean;
-    type: 'image' | 'video' | 'other'; // Simplified for now
+    type: 'image' | 'video' | 'other';
+    similarity?: number;
 };
 
 export type ScanResult = {

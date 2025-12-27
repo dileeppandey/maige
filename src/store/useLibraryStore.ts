@@ -119,11 +119,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Semantic search
     search: async (query: string) => {
         if (!query.trim()) {
-            set({ searchQuery: '', searchResults: [], isSearching: false });
+            set({ searchQuery: '', searchResults: [], isSearching: false, viewMode: 'library' });
             return;
         }
 
-        set({ searchQuery: query, isSearching: true });
+        set({ searchQuery: query, isSearching: true, viewMode: 'search' });
 
         try {
             const results = await window.electronAPI.search(query);
