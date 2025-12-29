@@ -87,4 +87,92 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Preset operations
     loadPresets: () => ipcRenderer.invoke('presets:load'),
     savePresets: (presets: unknown[]) => ipcRenderer.invoke('presets:save', presets),
+
+    // Generic menu action listener
+    onMenuAction: (callback: (action: string, data?: unknown) => void) => {
+        ipcRenderer.on('menu:openFolder', (_e, data: string) => callback('openFolder', data));
+        ipcRenderer.on('menu:importImages', (_e, data: string[]) => callback('importImages', data));
+        ipcRenderer.on('menu:closeFolder', () => callback('closeFolder'));
+        ipcRenderer.on('menu:export', () => callback('export'));
+        ipcRenderer.on('menu:exportAs', () => callback('exportAs'));
+        ipcRenderer.on('menu:quickExport', () => callback('quickExport'));
+        ipcRenderer.on('menu:showInFinder', () => callback('showInFinder'));
+        ipcRenderer.on('menu:moveToTrash', () => callback('moveToTrash'));
+
+        ipcRenderer.on('menu:undo', () => callback('undo'));
+        ipcRenderer.on('menu:redo', () => callback('redo'));
+        ipcRenderer.on('menu:selectAll', () => callback('selectAll'));
+        ipcRenderer.on('menu:deselectAll', () => callback('deselectAll'));
+        ipcRenderer.on('menu:invertSelection', () => callback('invertSelection'));
+
+        ipcRenderer.on('menu:newAlbum', () => callback('newAlbum'));
+        ipcRenderer.on('menu:addToAlbum', () => callback('addToAlbum'));
+        ipcRenderer.on('menu:removeFromAlbum', () => callback('removeFromAlbum'));
+        ipcRenderer.on('menu:analyzeFolder', () => callback('analyzeFolder'));
+        ipcRenderer.on('menu:findDuplicates', () => callback('findDuplicates'));
+        ipcRenderer.on('menu:semanticSearch', () => callback('semanticSearch'));
+        ipcRenderer.on('menu:sortBy', (_e, data: string) => callback('sortBy', data));
+        ipcRenderer.on('menu:filterBy', (_e, data: string) => callback('filterBy', data));
+
+        ipcRenderer.on('menu:copyAdjustments', () => callback('copyAdjustments'));
+        ipcRenderer.on('menu:pasteAdjustments', () => callback('pasteAdjustments'));
+        ipcRenderer.on('menu:syncSettings', () => callback('syncSettings'));
+        ipcRenderer.on('menu:resetAdjustments', () => callback('resetAdjustments'));
+        ipcRenderer.on('menu:revertToOriginal', () => callback('revertToOriginal'));
+        ipcRenderer.on('menu:createVirtualCopy', () => callback('createVirtualCopy'));
+
+        ipcRenderer.on('menu:getInfo', () => callback('getInfo'));
+        ipcRenderer.on('menu:addKeywords', () => callback('addKeywords'));
+        ipcRenderer.on('menu:setRating', (_e, data: number) => callback('setRating', data));
+        ipcRenderer.on('menu:setFlag', (_e, data: 'pick' | 'reject' | 'none') => callback('setFlag', data));
+
+        ipcRenderer.on('menu:togglePanel', (_e, data: 'library' | 'develop' | 'filmstrip') => callback('togglePanel', data));
+        ipcRenderer.on('menu:zoomIn', () => callback('zoomIn'));
+        ipcRenderer.on('menu:zoomOut', () => callback('zoomOut'));
+        ipcRenderer.on('menu:zoomFit', () => callback('zoomFit'));
+        ipcRenderer.on('menu:zoomActual', () => callback('zoomActual'));
+        ipcRenderer.on('menu:compareMode', () => callback('compareMode'));
+        ipcRenderer.on('menu:beforeAfter', () => callback('beforeAfter'));
+
+        return () => {
+            ipcRenderer.removeAllListeners('menu:openFolder');
+            ipcRenderer.removeAllListeners('menu:importImages');
+            ipcRenderer.removeAllListeners('menu:closeFolder');
+            ipcRenderer.removeAllListeners('menu:export');
+            ipcRenderer.removeAllListeners('menu:exportAs');
+            ipcRenderer.removeAllListeners('menu:quickExport');
+            ipcRenderer.removeAllListeners('menu:showInFinder');
+            ipcRenderer.removeAllListeners('menu:moveToTrash');
+            ipcRenderer.removeAllListeners('menu:undo');
+            ipcRenderer.removeAllListeners('menu:redo');
+            ipcRenderer.removeAllListeners('menu:selectAll');
+            ipcRenderer.removeAllListeners('menu:deselectAll');
+            ipcRenderer.removeAllListeners('menu:invertSelection');
+            ipcRenderer.removeAllListeners('menu:newAlbum');
+            ipcRenderer.removeAllListeners('menu:addToAlbum');
+            ipcRenderer.removeAllListeners('menu:removeFromAlbum');
+            ipcRenderer.removeAllListeners('menu:analyzeFolder');
+            ipcRenderer.removeAllListeners('menu:findDuplicates');
+            ipcRenderer.removeAllListeners('menu:semanticSearch');
+            ipcRenderer.removeAllListeners('menu:sortBy');
+            ipcRenderer.removeAllListeners('menu:filterBy');
+            ipcRenderer.removeAllListeners('menu:copyAdjustments');
+            ipcRenderer.removeAllListeners('menu:pasteAdjustments');
+            ipcRenderer.removeAllListeners('menu:syncSettings');
+            ipcRenderer.removeAllListeners('menu:resetAdjustments');
+            ipcRenderer.removeAllListeners('menu:revertToOriginal');
+            ipcRenderer.removeAllListeners('menu:createVirtualCopy');
+            ipcRenderer.removeAllListeners('menu:getInfo');
+            ipcRenderer.removeAllListeners('menu:addKeywords');
+            ipcRenderer.removeAllListeners('menu:setRating');
+            ipcRenderer.removeAllListeners('menu:setFlag');
+            ipcRenderer.removeAllListeners('menu:togglePanel');
+            ipcRenderer.removeAllListeners('menu:zoomIn');
+            ipcRenderer.removeAllListeners('menu:zoomOut');
+            ipcRenderer.removeAllListeners('menu:zoomFit');
+            ipcRenderer.removeAllListeners('menu:zoomActual');
+            ipcRenderer.removeAllListeners('menu:compareMode');
+            ipcRenderer.removeAllListeners('menu:beforeAfter');
+        };
+    },
 });

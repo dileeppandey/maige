@@ -82,7 +82,11 @@ function createSchema(db: Database.Database): void {
             
             -- Processing status
             analyzed_at DATETIME,
-            analysis_version INTEGER DEFAULT 1
+            analysis_version INTEGER DEFAULT 1,
+            
+            -- Metadata
+            rating INTEGER DEFAULT 0,
+            flag TEXT DEFAULT 'none'
         )
     `);
 
@@ -262,6 +266,8 @@ export interface ImageRecord {
     scene_type: string | null;
     analyzed_at: string | null;
     analysis_version: number;
+    rating: number;
+    flag: 'pick' | 'reject' | 'none';
 }
 
 /**
@@ -278,7 +284,8 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
             focal_length, aperture, iso, shutter_speed,
             exposure_program, metering_mode, flash, white_balance,
             gps_lat, gps_lng,
-            phash, auto_tags, scene_type, analyzed_at, analysis_version
+            phash, auto_tags, scene_type, analyzed_at, analysis_version,
+            rating, flag
         ) VALUES (
             @file_path, @file_name, @file_hash, @file_size, @width, @height,
             @format, @color_space, @has_alpha,
@@ -286,7 +293,8 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
             @focal_length, @aperture, @iso, @shutter_speed,
             @exposure_program, @metering_mode, @flash, @white_balance,
             @gps_lat, @gps_lng,
-            @phash, @auto_tags, @scene_type, @analyzed_at, @analysis_version
+            @phash, @auto_tags, @scene_type, @analyzed_at, @analysis_version,
+            @rating, @flag
         )
         ON CONFLICT(file_path) DO UPDATE SET
             file_hash = excluded.file_hash,
@@ -313,7 +321,9 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
             auto_tags = excluded.auto_tags,
             scene_type = excluded.scene_type,
             analyzed_at = excluded.analyzed_at,
-            analysis_version = excluded.analysis_version
+            analysis_version = excluded.analysis_version,
+            rating = excluded.rating,
+            flag = excluded.flag
     `);
 
     const result = stmt.run({
@@ -344,6 +354,8 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
         scene_type: image.scene_type ?? null,
         analyzed_at: image.analyzed_at ?? null,
         analysis_version: image.analysis_version ?? 1,
+        rating: image.rating ?? 0,
+        flag: image.flag ?? 'none',
     });
 
     return result.lastInsertRowid as number;

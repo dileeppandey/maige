@@ -50,6 +50,11 @@ interface LibraryState {
     selectImages: (imageIds: number[]) => void;
     clearSelection: () => void;
     selectAll: () => void;
+    invertSelection: () => void;
+
+    // Metadata actions
+    setRating: (rating: number) => Promise<void>;
+    setFlag: (flag: 'pick' | 'reject' | 'none') => Promise<void>;
 
     // Album actions
     createAlbum: (name: string, description?: string) => Promise<AlbumRecord | null>;
@@ -271,6 +276,55 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             ? searchResults.map(r => r.id)
             : images.map(i => i.id);
         set({ selectedImageIds: new Set(idsToSelect) });
+    },
+
+    invertSelection: () => {
+        const { images, searchResults, viewMode, selectedImageIds } = get();
+        const allIds = viewMode === 'library' || viewMode === 'search' || viewMode === 'tag'
+            ? searchResults.map(r => r.id)
+            : images.map(i => i.id);
+
+        const newSet = new Set<number>();
+        allIds.forEach(id => {
+            if (!selectedImageIds.has(id)) {
+                newSet.add(id);
+            }
+        });
+        set({ selectedImageIds: newSet });
+    },
+
+    setRating: async (rating: number) => {
+        const { selectedImageIds } = get();
+        if (selectedImageIds.size === 0) return;
+
+        set((state) => ({
+            images: state.images.map(img =>
+                selectedImageIds.has(img.id) ? { ...img, rating } : img
+            ),
+            searchResults: state.searchResults.map(res =>
+                selectedImageIds.has(res.id) ? { ...res, rating } : res
+            )
+        }));
+
+        // TODO: Persist to database via IPC
+        console.log(`Setting rating ${rating} for ${selectedImageIds.size} images`);
+    },
+
+    setFlag: async (flag: 'pick' | 'reject' | 'none') => {
+        const { selectedImageIds } = get();
+        if (selectedImageIds.size === 0) return;
+
+        set((state) => ({
+            images: state.images.map(img =>
+                selectedImageIds.has(img.id) ? { ...img, flag } : img
+            ),
+            searchResults: state.searchResults.map(res =>
+                selectedImageIds.has(res.id) ? { ...res, flag } : res
+            )
+        }));
+
+        // TODO: Persist to database via IPC
+        console.log(`Setting flag ${flag} for ${selectedImageIds.size} images`);
     },
 
     // Album CRUD actions

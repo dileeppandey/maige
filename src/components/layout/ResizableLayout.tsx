@@ -141,31 +141,37 @@ export function ResizableLayout({
     return (
         <div ref={containerRef} className="flex-1 flex min-h-0 w-full h-full">
             {/* Left Panel */}
-            <div className="h-full" style={{ width: leftWidth, flexShrink: 0 }}>
-                {leftPanel}
-            </div>
-
-            {/* Left Resize Handle */}
-            <div
-                className="resize-handle h-full"
-                onMouseDown={startResizeLeft}
-            />
+            {leftPanel && (
+                <>
+                    <div className="h-full" style={{ width: leftWidth, flexShrink: 0 }}>
+                        {leftPanel}
+                    </div>
+                    {/* Left Resize Handle */}
+                    <div
+                        className="resize-handle h-full"
+                        onMouseDown={startResizeLeft}
+                    />
+                </>
+            )}
 
             {/* Center Panel */}
             <div className="flex-1 min-w-0 h-full">
                 {centerPanel}
             </div>
 
-            {/* Right Resize Handle */}
-            <div
-                className="resize-handle h-full"
-                onMouseDown={startResizeRight}
-            />
-
             {/* Right Panel */}
-            <div className="h-full" style={{ width: rightWidth, flexShrink: 0 }}>
-                {rightPanel}
-            </div>
+            {rightPanel && (
+                <>
+                    {/* Right Resize Handle */}
+                    <div
+                        className="resize-handle h-full"
+                        onMouseDown={startResizeRight}
+                    />
+                    <div className="h-full" style={{ width: rightWidth, flexShrink: 0 }}>
+                        {rightPanel}
+                    </div>
+                </>
+            )}
         </div>
     )
 }

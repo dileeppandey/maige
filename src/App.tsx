@@ -11,7 +11,9 @@ import { FloatingActionBar } from './components/FloatingActionBar'
 import { PickModeHeader } from './components/PickModeHeader'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
+import { useUIStore } from './store/useUIStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
+import { useCallback } from 'react'
 
 function App() {
   // Initialize face detection processing (runs in background after imports)
@@ -160,35 +162,35 @@ function App() {
   const currentAdjustments = getAdjustments(selectedPath)
 
   // Handlers for DevelopPanel
-  const handleLightChange = (key: keyof LightAdjustments, value: number) => {
+  const handleLightChange = useCallback((key: keyof LightAdjustments, value: number) => {
     if (selectedPath) {
       updateLightAdjustment(selectedPath, key, value)
     }
-  }
+  }, [selectedPath, updateLightAdjustment])
 
-  const handleColorChange = (key: keyof ColorAdjustments, value: number) => {
+  const handleColorChange = useCallback((key: keyof ColorAdjustments, value: number) => {
     if (selectedPath) {
       updateColorAdjustment(selectedPath, key, value)
     }
-  }
+  }, [selectedPath, updateColorAdjustment])
 
-  const handleCopySettings = () => {
+  const handleCopySettings = useCallback(() => {
     if (selectedPath) {
       copySettings(selectedPath)
     }
-  }
+  }, [selectedPath, copySettings])
 
-  const handlePasteSettings = () => {
+  const handlePasteSettings = useCallback(() => {
     if (selectedPath) {
       pasteSettings(selectedPath)
     }
-  }
+  }, [selectedPath, pasteSettings])
 
-  const handleResetSettings = () => {
+  const handleResetSettings = useCallback(() => {
     if (selectedPath) {
       resetAdjustments(selectedPath)
     }
-  }
+  }, [selectedPath, resetAdjustments])
 
   const handleSavePreset = (name: string) => {
     savePreset(name, currentAdjustments)
@@ -199,6 +201,112 @@ function App() {
       applyPreset(selectedPath, presetId)
     }
   }
+
+  // Get UI state
+  const {
+    showLibraryPanel,
+    showDevelopPanel,
+    showFilmstrip,
+    togglePanel,
+    zoomIn,
+    zoomOut,
+    zoomFit,
+    toggleCompareMode,
+    toggleBeforeAfter
+  } = useUIStore()
+
+  // Connect Menu Actions
+  useEffect(() => {
+    const cleanup = window.electronAPI.onMenuAction((action, data) => {
+      console.log('Menu action:', action, data)
+
+      switch (action) {
+        // File
+        case 'openFolder':
+          if (typeof data === 'string') {
+            setCurrentPath(data)
+            window.electronAPI.readFolder(data).then(setFiles)
+          }
+          break
+        case 'importImages':
+          if (Array.isArray(data)) {
+            // Logic to handle multiple images import could go here
+            console.log('Importing multiple images:', data)
+          }
+          break
+        case 'closeFolder':
+          setCurrentPath(null)
+          setFiles([])
+          setSelectedFile(null)
+          break
+
+        // Edit & Library
+        case 'undo':
+          console.log('Undo requested')
+          break
+        case 'redo':
+          console.log('Redo requested')
+          break
+        case 'selectAll':
+          useLibraryStore.getState().selectAll()
+          break
+        case 'deselectAll':
+          useLibraryStore.getState().clearSelection()
+          break
+        case 'invertSelection':
+          useLibraryStore.getState().invertSelection()
+          break
+
+        // Metadata
+        case 'setRating':
+          if (typeof data === 'number') {
+            useLibraryStore.getState().setRating(data)
+          }
+          break
+        case 'setFlag':
+          if (data === 'pick' || data === 'reject' || data === 'none') {
+            useLibraryStore.getState().setFlag(data)
+          }
+          break
+
+        // Library Features
+        case 'newAlbum':
+          console.log('New Album requested')
+          break
+        case 'semanticSearch':
+          // Focus search bar or trigger search logic
+          break
+
+        // Develop
+        case 'copyAdjustments':
+          handleCopySettings()
+          break
+        case 'pasteAdjustments':
+          handlePasteSettings()
+          break
+        case 'resetAdjustments':
+          handleResetSettings()
+          break
+
+        // View / UI
+        case 'togglePanel':
+          if (data === 'library' || data === 'develop' || data === 'filmstrip') {
+            togglePanel(data)
+          }
+          break
+        case 'zoomIn': zoomIn(); break
+        case 'zoomOut': zoomOut(); break
+        case 'zoomFit': zoomFit(); break
+        case 'compareMode': toggleCompareMode(); break
+        case 'beforeAfter': toggleBeforeAfter(); break
+
+        default:
+          console.warn('Unhandled menu action:', action)
+      }
+    })
+
+    return cleanup
+  }, [handleCopySettings, handlePasteSettings, handleResetSettings, togglePanel, zoomIn, zoomOut, zoomFit, toggleCompareMode, toggleBeforeAfter])
 
   return (
     <div className="flex flex-col h-screen bg-[#1e1e1e] text-gray-300 font-sans overflow-hidden">
@@ -225,13 +333,13 @@ function App() {
                 })
               }}
             />
-          ) : (
+          ) : showLibraryPanel ? (
             <LibraryPanel
               currentPath={currentPath}
               files={files}
               onOpenFolder={handleOpenFolder}
             />
-          )
+          ) : null
         }
         centerPanel={
           <ImagePreview
@@ -241,28 +349,32 @@ function App() {
           />
         }
         rightPanel={
-          <RightPanel
-            adjustments={currentAdjustments}
-            onLightChange={handleLightChange}
-            onColorChange={handleColorChange}
-            onCopySettings={handleCopySettings}
-            onPasteSettings={handlePasteSettings}
-            onResetSettings={handleResetSettings}
-            hasClipboard={hasClipboard()}
-            presets={presets}
-            onApplyPreset={handleApplyPreset}
-            onSavePreset={handleSavePreset}
-            selectedImagePath={selectedFile?.path}
-            histogramData={histogramData}
-          />
+          showDevelopPanel ? (
+            <RightPanel
+              adjustments={currentAdjustments}
+              onLightChange={handleLightChange}
+              onColorChange={handleColorChange}
+              onCopySettings={handleCopySettings}
+              onPasteSettings={handlePasteSettings}
+              onResetSettings={handleResetSettings}
+              hasClipboard={hasClipboard()}
+              presets={presets}
+              onApplyPreset={handleApplyPreset}
+              onSavePreset={handleSavePreset}
+              selectedImagePath={selectedFile?.path}
+              histogramData={histogramData}
+            />
+          ) : null
         }
       />
 
-      <Filmstrip
-        files={displayFiles}
-        selectedFile={selectedFile}
-        onSelectFile={setSelectedFile}
-      />
+      {showFilmstrip && (
+        <Filmstrip
+          files={displayFiles}
+          selectedFile={selectedFile}
+          onSelectFile={setSelectedFile}
+        />
+      )}
 
       {/* Floating Action Bar for bulk operations */}
       <FloatingActionBar />

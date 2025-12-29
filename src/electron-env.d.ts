@@ -70,6 +70,9 @@ declare global {
             // Preset operations
             loadPresets: () => Promise<unknown[]>;
             savePresets: (presets: unknown[]) => Promise<{ success: boolean; error?: string }>;
+
+            // Menu actions
+            onMenuAction: (callback: (action: string, data?: unknown) => void) => () => void;
         };
     }
 }

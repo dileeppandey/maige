@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol, net, Menu, MenuItemConstructorOptions, shell } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { pathToFileURL, fileURLToPath } from 'url';
@@ -893,6 +893,7 @@ app.whenReady().then(() => {
         return net.fetch(pathToFileURL(decodedPath).toString());
     });
 
+    setupMenu();
     createWindow();
 
     app.on('activate', () => {
@@ -912,3 +913,309 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
     closeDatabase();
 });
+
+// ============================================
+// Menu Template & Implementation
+// ============================================
+
+/**
+ * Build the Professional Mac Menu Bar
+ */
+const setupMenu = () => {
+    const isMac = process.platform === 'darwin';
+
+    const template: MenuItemConstructorOptions[] = [
+        // { role: 'appMenu' }
+        ...(isMac ? [{
+            label: app.name,
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }] as MenuItemConstructorOptions[] : []),
+        {
+            label: 'File',
+            submenu: [
+                {
+                    label: 'Open Folder...',
+                    accelerator: 'CmdOrCtrl+O',
+                    click: async () => {
+                        const { canceled, filePaths } = await dialog.showOpenDialog({
+                            properties: ['openDirectory'],
+                        });
+                        if (!canceled && filePaths[0]) {
+                            mainWindow?.webContents.send('menu:openFolder', filePaths[0]);
+                        }
+                    }
+                },
+                { label: 'Open Recent', role: 'recentDocuments' },
+                { type: 'separator' },
+                {
+                    label: 'Close Folder',
+                    accelerator: 'Shift+CmdOrCtrl+W',
+                    click: () => mainWindow?.webContents.send('menu:closeFolder')
+                },
+                { label: 'Close Window', accelerator: 'CmdOrCtrl+W', role: 'close' },
+                { type: 'separator' },
+                {
+                    label: 'Import Images...',
+                    accelerator: 'Shift+CmdOrCtrl+I',
+                    click: async () => {
+                        const { canceled, filePaths } = await dialog.showOpenDialog({
+                            properties: ['openFile', 'multiSelections'],
+                            filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'cr2', 'arw', 'dng', 'nef'] }]
+                        });
+                        if (!canceled && filePaths.length > 0) {
+                            mainWindow?.webContents.send('menu:importImages', filePaths);
+                        }
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Export...',
+                    accelerator: 'CmdOrCtrl+E',
+                    click: () => mainWindow?.webContents.send('menu:export')
+                },
+                {
+                    label: 'Export As...',
+                    accelerator: 'Shift+CmdOrCtrl+E',
+                    click: () => mainWindow?.webContents.send('menu:exportAs')
+                },
+                {
+                    label: 'Quick Export (JPEG)',
+                    accelerator: 'Alt+Shift+J',
+                    click: () => mainWindow?.webContents.send('menu:quickExport')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Show in Finder',
+                    accelerator: 'Shift+CmdOrCtrl+R',
+                    click: () => mainWindow?.webContents.send('menu:showInFinder')
+                },
+                {
+                    label: 'Move to Trash',
+                    accelerator: 'CmdOrCtrl+Backspace',
+                    click: () => mainWindow?.webContents.send('menu:moveToTrash')
+                },
+            ]
+        },
+        {
+            label: 'Edit',
+            submenu: [
+                { label: 'Undo', accelerator: 'CmdOrCtrl+Z', click: () => mainWindow?.webContents.send('menu:undo') },
+                { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', click: () => mainWindow?.webContents.send('menu:redo') },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'delete' },
+                { type: 'separator' },
+                { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: () => mainWindow?.webContents.send('menu:selectAll') },
+                { label: 'Deselect All', accelerator: 'Shift+CmdOrCtrl+A', click: () => mainWindow?.webContents.send('menu:deselectAll') },
+                {
+                    label: 'Invert Selection',
+                    accelerator: 'CmdOrCtrl+I',
+                    click: () => mainWindow?.webContents.send('menu:invertSelection')
+                },
+            ]
+        },
+        {
+            label: 'Library',
+            submenu: [
+                {
+                    label: 'New Album',
+                    accelerator: 'CmdOrCtrl+N',
+                    click: () => mainWindow?.webContents.send('menu:newAlbum')
+                },
+                {
+                    label: 'Add to Album...',
+                    accelerator: 'Alt+CmdOrCtrl+A',
+                    click: () => mainWindow?.webContents.send('menu:addToAlbum')
+                },
+                {
+                    label: 'Remove from Album',
+                    accelerator: 'Alt+CmdOrCtrl+Backspace',
+                    click: () => mainWindow?.webContents.send('menu:removeFromAlbum')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Analyze Folder...',
+                    accelerator: 'Alt+Shift+A',
+                    click: () => mainWindow?.webContents.send('menu:analyzeFolder')
+                },
+                {
+                    label: 'Find Duplicates...',
+                    click: () => mainWindow?.webContents.send('menu:findDuplicates')
+                },
+                {
+                    label: 'Semantic Search',
+                    accelerator: 'CmdOrCtrl+F',
+                    click: () => mainWindow?.webContents.send('menu:semanticSearch')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Sort By',
+                    submenu: [
+                        { label: 'Date', click: () => mainWindow?.webContents.send('menu:sortBy', 'date') },
+                        { label: 'Name', click: () => mainWindow?.webContents.send('menu:sortBy', 'name') },
+                        { label: 'Rating', click: () => mainWindow?.webContents.send('menu:sortBy', 'rating') },
+                    ]
+                },
+                {
+                    label: 'Filter By',
+                    submenu: [
+                        { label: 'Flagged', click: () => mainWindow?.webContents.send('menu:filterBy', 'flagged') },
+                        { label: 'Unflagged', click: () => mainWindow?.webContents.send('menu:filterBy', 'unflagged') },
+                        { label: 'Clear Filters', click: () => mainWindow?.webContents.send('menu:filterBy', 'none') },
+                    ]
+                }
+            ]
+        },
+        {
+            label: 'Develop',
+            submenu: [
+                {
+                    label: 'Copy Adjustments',
+                    accelerator: 'Alt+CmdOrCtrl+C',
+                    click: () => mainWindow?.webContents.send('menu:copyAdjustments')
+                },
+                {
+                    label: 'Paste Adjustments',
+                    accelerator: 'Alt+CmdOrCtrl+V',
+                    click: () => mainWindow?.webContents.send('menu:pasteAdjustments')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Sync Settings to Selected',
+                    accelerator: 'Shift+CmdOrCtrl+S',
+                    click: () => mainWindow?.webContents.send('menu:syncSettings')
+                },
+                {
+                    label: 'Reset All Adjustments',
+                    accelerator: 'Shift+CmdOrCtrl+R',
+                    click: () => mainWindow?.webContents.send('menu:resetAdjustments')
+                },
+                {
+                    label: 'Revert to Original',
+                    click: () => mainWindow?.webContents.send('menu:revertToOriginal')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Create Virtual Copy',
+                    accelerator: "CmdOrCtrl+'",
+                    click: () => mainWindow?.webContents.send('menu:createVirtualCopy')
+                },
+            ]
+        },
+        {
+            label: 'Metadata',
+            submenu: [
+                {
+                    label: 'Get Info',
+                    accelerator: 'CmdOrCtrl+I',
+                    click: () => mainWindow?.webContents.send('menu:getInfo')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Add Keywords...',
+                    accelerator: 'CmdOrCtrl+K',
+                    click: () => mainWindow?.webContents.send('menu:addKeywords')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Set Rating',
+                    submenu: [
+                        { label: '0 Stars', accelerator: '0', click: () => mainWindow?.webContents.send('menu:setRating', 0) },
+                        { label: '1 Star', accelerator: '1', click: () => mainWindow?.webContents.send('menu:setRating', 1) },
+                        { label: '2 Stars', accelerator: '2', click: () => mainWindow?.webContents.send('menu:setRating', 2) },
+                        { label: '3 Stars', accelerator: '3', click: () => mainWindow?.webContents.send('menu:setRating', 3) },
+                        { label: '4 Stars', accelerator: '4', click: () => mainWindow?.webContents.send('menu:setRating', 4) },
+                        { label: '5 Stars', accelerator: '5', click: () => mainWindow?.webContents.send('menu:setRating', 5) },
+                    ]
+                },
+                {
+                    label: 'Set Flag',
+                    submenu: [
+                        { label: 'Pick', accelerator: 'P', click: () => mainWindow?.webContents.send('menu:setFlag', 'pick') },
+                        { label: 'Unflagged', accelerator: 'U', click: () => mainWindow?.webContents.send('menu:setFlag', 'none') },
+                        { label: 'Reject', accelerator: 'X', click: () => mainWindow?.webContents.send('menu:setFlag', 'reject') },
+                    ]
+                }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                {
+                    label: 'Show/Hide Library',
+                    accelerator: 'CmdOrCtrl+1',
+                    click: () => mainWindow?.webContents.send('menu:togglePanel', 'library')
+                },
+                {
+                    label: 'Show/Hide Develop',
+                    accelerator: 'CmdOrCtrl+2',
+                    click: () => mainWindow?.webContents.send('menu:togglePanel', 'develop')
+                },
+                {
+                    label: 'Show/Hide Filmstrip',
+                    accelerator: 'CmdOrCtrl+3',
+                    click: () => mainWindow?.webContents.send('menu:togglePanel', 'filmstrip')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Zoom In',
+                    accelerator: 'CmdOrCtrl+=',
+                    click: () => mainWindow?.webContents.send('menu:zoomIn')
+                },
+                {
+                    label: 'Zoom Out',
+                    accelerator: 'CmdOrCtrl+-',
+                    click: () => mainWindow?.webContents.send('menu:zoomOut')
+                },
+                {
+                    label: 'Fit to Window',
+                    accelerator: 'CmdOrCtrl+0',
+                    click: () => mainWindow?.webContents.send('menu:zoomFit')
+                },
+                {
+                    label: 'Actual Size',
+                    accelerator: 'Alt+CmdOrCtrl+0',
+                    click: () => mainWindow?.webContents.send('menu:zoomActual')
+                },
+                { type: 'separator' },
+                {
+                    label: 'Compare Mode',
+                    accelerator: 'C',
+                    click: () => mainWindow?.webContents.send('menu:compareMode')
+                },
+                {
+                    label: 'Before/After',
+                    accelerator: '\\',
+                    click: () => mainWindow?.webContents.send('menu:beforeAfter')
+                },
+            ]
+        },
+        { role: 'windowMenu' },
+        {
+            role: 'help',
+            submenu: [
+                {
+                    label: 'Learn More',
+                    click: async () => {
+                        await shell.openExternal('https://electronjs.org');
+                    }
+                }
+            ]
+        }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+};
