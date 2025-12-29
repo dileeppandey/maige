@@ -19,6 +19,7 @@ dist-ssr
 
 # Electron build output
 dist-electron
+dist-app
 release
 
 # OS generated files

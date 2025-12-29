@@ -32,9 +32,20 @@ export function ImageViewer({
     const [isDragging, setIsDragging] = useState(false)
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
     const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
     // Canvas processor hook
-    const { canvasRef, isLoading, error, dimensions, histogram, showOriginal, showProcessed, isShowingOriginal } = useCanvasProcessor({
+    const {
+        canvasRef,
+        isLoading,
+        error,
+        dimensions,
+        histogram,
+        showOriginal,
+        showProcessed,
+        isShowingOriginal,
+        getCanvasDataUrl
+    } = useCanvasProcessor({
         src,
         adjustments
     })
@@ -215,6 +226,10 @@ export function ImageViewer({
         return 'default'
     }
 
+    const handleExportClick = () => {
+        setIsExportModalOpen(true)
+    }
+
     const zoomPercent = Math.round(zoom * 100)
     const scaledWidth = naturalWidth * zoom
     const scaledHeight = naturalHeight * zoom
@@ -358,6 +373,14 @@ export function ImageViewer({
                     </div>
                 )}
             </div>
+
+            {/* Export Modal */}
+            <ExportModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                originalFileName={src}
+                getCanvasDataUrl={getCanvasDataUrl}
+            />
         </div>
     )
 }
