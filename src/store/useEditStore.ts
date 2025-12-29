@@ -40,6 +40,7 @@ interface EditState {
     savePreset: (name: string, adjustments: ImageAdjustments) => void
     applyPreset: (filePath: string, presetId: string) => void
     deletePreset: (presetId: string) => void
+    loadPresetsFromDisk: () => Promise<void>
 }
 
 function checkIsDirty(adjustments: ImageAdjustments): boolean {
@@ -167,7 +168,7 @@ export const useEditStore = create<EditState>((set, get) => ({
 
     hasClipboard: () => get().clipboard !== null,
 
-    // Save current adjustments as a named preset
+    // Save current adjustments as a named preset (and persist to disk)
     savePreset: (name, adjustments) => {
         const preset: StylePreset = {
             id: generateId(),
@@ -175,9 +176,12 @@ export const useEditStore = create<EditState>((set, get) => ({
             adjustments: { ...adjustments },
             createdAt: new Date().toISOString()
         }
-        set((state) => ({
-            presets: [...state.presets, preset]
-        }))
+        set((state) => {
+            const newPresets = [...state.presets, preset]
+            // Persist to disk asynchronously
+            window.electronAPI?.savePresets(newPresets)
+            return { presets: newPresets }
+        })
     },
 
     // Apply a preset to an image
@@ -187,10 +191,25 @@ export const useEditStore = create<EditState>((set, get) => ({
         get().setAdjustments(filePath, { ...preset.adjustments })
     },
 
-    // Delete a preset
+    // Delete a preset (and persist to disk)
     deletePreset: (presetId) => {
-        set((state) => ({
-            presets: state.presets.filter(p => p.id !== presetId)
-        }))
+        set((state) => {
+            const newPresets = state.presets.filter(p => p.id !== presetId)
+            // Persist to disk asynchronously
+            window.electronAPI?.savePresets(newPresets)
+            return { presets: newPresets }
+        })
+    },
+
+    // Load presets from disk on app start
+    loadPresetsFromDisk: async () => {
+        try {
+            const presets = await window.electronAPI?.loadPresets()
+            if (Array.isArray(presets)) {
+                set({ presets: presets as StylePreset[] })
+            }
+        } catch (error) {
+            console.error('Failed to load presets:', error)
+        }
     }
 }))

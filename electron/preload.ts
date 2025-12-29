@@ -77,4 +77,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('library:startFaceDetection', handler);
         return () => ipcRenderer.removeListener('library:startFaceDetection', handler);
     },
+
+    // Export operations
+    showExportSaveDialog: (defaultPath: string, format: 'jpeg' | 'png') =>
+        ipcRenderer.invoke('export:showSaveDialog', defaultPath, format),
+    exportImage: (options: { dataUrl: string; outputPath: string; format: 'jpeg' | 'png'; quality: number }) =>
+        ipcRenderer.invoke('export:saveImage', options),
+
+    // Preset operations
+    loadPresets: () => ipcRenderer.invoke('presets:load'),
+    savePresets: (presets: unknown[]) => ipcRenderer.invoke('presets:save', presets),
 });

@@ -37,8 +37,14 @@ function App() {
     hasClipboard,
     presets,
     savePreset,
-    applyPreset
+    applyPreset,
+    loadPresetsFromDisk
   } = useEditStore()
+
+  // Load presets from disk at startup
+  useEffect(() => {
+    loadPresetsFromDisk()
+  }, [loadPresetsFromDisk])
 
   // Get search state from library store
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId } = useLibraryStore()

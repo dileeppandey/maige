@@ -1,219 +1,177 @@
-# File Menu Options
+# Professional Mac Menu Bar Proposal
 
 **Status:** Proposal  
-**Date:** December 25, 2025
+**Date:** December 25, 2025 (Updated: December 28, 2025)
 
 ## Overview
 
-Expand the File menu in the application toolbar to include essential file operations, import/export functionality, and batch processing capabilities. Currently, the File menu only contains "Close Window."
+This proposal outlines a comprehensive macOS-compliant menu bar structure. By distributing functionality across specialized top-level menus, we ensure the **File** and **Edit** menus remain clean and predictable, while providing direct access to advanced **Develop**, **Library**, and **Metadata** features.
 
 ---
 
-## Goals
+## Proposed Menu Bar Layout
 
-- **Familiar UX**: Match conventions from Lightroom/Photoshop that users expect
-- **Non-destructive workflow**: All edits are saved separately from originals
-- **Flexible export**: Multiple format and quality options
-- **Productivity**: Quick keyboard shortcuts for common actions
-
----
-
-## Proposed Menu Structure
+### 📁 File (Data Management)
+*Focus: File lifecycle and external interaction.*
 
 ```
 File
 ├── Open Folder...              ⌘O
-├── Open Recent                 →  [submenu]
+├── Open Recent                 → [last 10 folders]
 ├── Close Folder                ⇧⌘W
 ├── Close Window                ⌘W
 ├── ─────────────────────────────
 ├── Import Images...            ⇧⌘I
 ├── ─────────────────────────────
-├── Save Edits                  ⌘S
-├── Revert to Original
-├── ─────────────────────────────
 ├── Export...                   ⌘E
 ├── Export As...                ⇧⌘E
-├── Quick Export (JPEG)         ⌘⇧J
+├── Quick Export (JPEG)         ⌥⇧J
 ├── ─────────────────────────────
-├── Export Selected...
-├── Sync Settings to Selected
-└── ─────────────────────────────
+├── Page Setup...               ⇧⌘P
+├── Print...                    ⌘P
+├── ─────────────────────────────
+├── Show in Finder              ⇧⌘R
+├── Move to Trash               ⌘⌫
 ```
 
 ---
 
-## Feature Details
+### ✏️ Edit (General Operations)
+*Focus: Standard history and text manipulation.*
 
-### 1. Open Folder / Open Recent
-
-| Feature | Description |
-|---------|-------------|
-| **Open Folder** | Existing functionality, moved to menu with `⌘O` shortcut |
-| **Open Recent** | Submenu showing last 10 opened folders with full paths |
-| **Close Folder** | Clears workspace without quitting app |
-
-**Implementation Notes:**
-- Store recent folders in `electron-store` or similar
-- Show folder name with path in tooltip
-
----
-
-### 2. Import Images
-
-| Feature | Description |
-|---------|-------------|
-| **Import Images** | File picker for selecting individual images (vs entire folder) |
-| **Supported formats** | JPG, PNG, WebP, RAW formats (CR2, ARW, DNG, NEF, etc.) |
-
-**Implementation Notes:**
-- Use Electron's `dialog.showOpenDialog` with `multiSelections` property
-- Add imported images to current workspace
-
----
-
-### 3. Save / Revert
-
-| Feature | Description |
-|---------|-------------|
-| **Save Edits** | Persist current adjustments to local database or `.xmp` sidecar |
-| **Revert to Original** | Discard all adjustments for selected image |
-
-**Implementation Notes:**
-- Non-destructive: Never modify original files
-- Options for storage:
-  - SQLite database (current `useEditStore` approach)
-  - XMP sidecar files (industry standard, portable)
-
----
-
-### 4. Export Options
-
-| Feature | Shortcut | Description |
-|---------|----------|-------------|
-| **Export** | `⌘E` | Export with last-used settings |
-| **Export As** | `⇧⌘E` | Full dialog with format/quality/size options |
-| **Quick Export** | `⌘⇧J` | One-click JPEG export to same folder |
-
-**Export Dialog Options:**
 ```
-┌─────────────────────────────────────────────┐
-│ Export Settings                             │
-├─────────────────────────────────────────────┤
-│ Format:    [JPEG ▼]  PNG | WebP | TIFF      │
-│ Quality:   [========●==] 80%                │
-│ Resize:    [ ] Resize to fit               │
-│            Width [____] Height [____]       │
-│ Output:    [📁 Choose Folder...]            │
-│ Naming:    [Original name ▼] + suffix       │
-├─────────────────────────────────────────────┤
-│            [Cancel]  [Export]               │
-└─────────────────────────────────────────────┘
+Edit
+├── Undo                        ⌘Z
+├── Redo                        ⇧⌘Z
+├── ─────────────────────────────
+├── Cut                         ⌘X
+├── Copy                        ⌘C
+├── Paste                       ⌘V
+├── Delete                      ⌫
+├── ─────────────────────────────
+├── Select All                  ⌘A
+├── Deselect All                ⇧⌘A
+├── Invert Selection            ⌘I
 ```
 
-**Implementation Notes:**
-- Use `sharp` for format conversion and resizing
-- Apply current adjustments during export
-- Save export presets for repeated use
-
 ---
 
-### 5. Batch Operations
+### 📚 Library (Organization)
+*Focus: High-level organization and AI-driven features.*
 
-| Feature | Description |
-|---------|-------------|
-| **Export Selected** | Export multiple selected images with same settings |
-| **Sync Settings** | Copy current image's adjustments to all selected images |
-
-**Implementation Notes:**
-- Requires multi-select in filmstrip (future feature)
-- Show progress bar for batch exports
-- Use `worker_threads` for parallel processing
-
----
-
-## Implementation Phases
-
-### Phase 1: Core Menu & Shortcuts
-- [ ] Create Electron menu template in `main.ts`
-- [ ] Add keyboard shortcuts for existing actions
-- [ ] Implement Open Recent with persistent storage
-- [ ] Add Close Folder functionality
-
-### Phase 2: Export Foundation
-- [ ] Create Export dialog component
-- [ ] Implement single-image export with `sharp`
-- [ ] Apply adjustments during export pipeline
-- [ ] Quick Export with default settings
-
-### Phase 3: Export Polish
-- [ ] Export As with full options
-- [ ] Export presets (save/load settings)
-- [ ] Resize options
-- [ ] Output folder selection
-
-### Phase 4: Batch & Persistence
-- [ ] Multi-select in filmstrip
-- [ ] Batch export with progress
-- [ ] Sync settings to multiple images
-- [ ] XMP sidecar support (optional)
-
----
-
-## Technical Implementation
-
-### Menu Template (Electron)
-
-```typescript
-// electron/main.ts
-import { Menu, MenuItem } from 'electron';
-
-const fileMenu: MenuItemConstructorOptions = {
-  label: 'File',
-  submenu: [
-    { label: 'Open Folder...', accelerator: 'CmdOrCtrl+O', click: handleOpenFolder },
-    { label: 'Open Recent', submenu: buildRecentMenu() },
-    { type: 'separator' },
-    { label: 'Close Folder', accelerator: 'Shift+CmdOrCtrl+W', click: handleCloseFolder },
-    { label: 'Close Window', accelerator: 'CmdOrCtrl+W', role: 'close' },
-    { type: 'separator' },
-    { label: 'Export...', accelerator: 'CmdOrCtrl+E', click: handleExport },
-    { label: 'Export As...', accelerator: 'Shift+CmdOrCtrl+E', click: handleExportAs },
-  ]
-};
+```
+Library
+├── New Album                   ⌘N
+├── Add to Album...             ⌥⌘A
+├── Remove from Album           ⌥⌘⌫
+├── ─────────────────────────────
+├── Analyze Folder...           ⌥⇧A
+├── Find Duplicates...
+├── Semantic Search             ⌘F
+├── ─────────────────────────────
+├── Sort By                     → [Date, Name, Rating]
+├── Filter By                   → [Flagged, Unflagged]
 ```
 
-### IPC Channels Needed
+---
 
-| Channel | Direction | Purpose |
-|---------|-----------|---------|
-| `file:export` | Renderer → Main | Trigger export with settings |
-| `file:exportProgress` | Main → Renderer | Report export progress |
-| `file:openRecent` | Renderer → Main | Open a recent folder |
-| `file:getRecent` | Renderer → Main | Get recent folders list |
+### 🛠️ Develop (Image Processing)
+*Focus: Editing workflow and adjustment syncing.*
+
+```
+Develop
+├── Copy Adjustments            ⌥⌘C
+├── Paste Adjustments           ⌥⌘V
+├── Copy Colors Only            ⌥⇧⌘C
+├── ─────────────────────────────
+├── Sync Settings to Selected   ⇧⌘S
+├── Reset All Adjustments       ⇧⌘R
+├── Revert to Original
+├── ─────────────────────────────
+├── Create Virtual Copy         ⌘'
+├── ─────────────────────────────
+├── Settings
+│   ├── Previous Edit           ⌘[
+│   └── Next Edit               ⌘]
+```
 
 ---
 
-## Dependencies
+### 🏷️ Metadata (Information)
+*Focus: Tagging, EXIF data, and labeling.*
 
-| Package | Purpose | Already Installed? |
-|---------|---------|-------------------|
-| `sharp` | Image processing & export | ✅ Yes |
-| `electron-store` | Persist recent folders | ❌ No |
+```
+Metadata
+├── Get Info                    ⌘I
+├── Show Adjustments Panel      ⌘D
+├── ─────────────────────────────
+├── Add Keywords...             ⌘K
+├── Edit Caption...             ⇧⌘K
+├── ─────────────────────────────
+├── Set Rating
+│   ├── 0 to 5 Starts           [0-5]
+│   └── Flag/Reject             [P / U / X]
+├── Set Color Label
+│   └── Red/Yellow/Green...     [6-9]
+```
+
+---
+
+### 👁️ View (Interface)
+*Focus: Workspace layout and viewing modes.*
+
+```
+View
+├── Show/Hide Library           ⌘1
+├── Show/Hide Develop           ⌘2
+├── Show/Hide Filmstrip         ⌘3
+├── ─────────────────────────────
+├── Zoom In                     ⌘+
+├── Zoom Out                    ⌘-
+├── Fit to Window               ⌘0
+├── Actual Size                 ⌥⌘0
+├── ─────────────────────────────
+├── Compare Mode                C
+├── Before/After                \
+```
+
+---
+
+## Feature Implementation Details
+
+### 1. The "Develop" Menu
+Moving adjustment-related actions to a dedicated **Develop** menu reflects industry standards (Lightroom). This allows power users to quickly copy/paste complex edit states without digging through the general Edit menu.
+
+### 2. The "Metadata" Menu
+By providing direct shortcuts (0-5 for ratings, P/X for flags), we enable high-speed culling. This menu interacts directly with the `ImageRecord` schema in our SQLite database.
+
+### 3. "File" Operations
+The **Export** suite remains in File as it represents the "production" phase of the workflow. We add **Print** support to round out the standard file lifecycle.
+
+---
+
+## Technical Implementation (Electron)
+
+The menu will be implemented using Electron's `Menu.setApplicationMenu()` in the `main` process.
+
+### IPC Channels (Revised)
+
+| Channel | Direction | Target Component |
+|---------|-----------|------------------|
+| `menu:action` | Main → Renderer | Triggers a generic action in the UI |
+| `edit:undo-redo` | Main → Renderer | Navigates the adjustment history stack |
+| `dev:sync` | Main → Renderer | Syncs current sliders to selection |
+| `meta:update` | Main → Renderer | Updates database with rating/flag |
 
 ---
 
 ## Open Questions
 
-1. **Sidecar vs Database** — Should edits be stored in XMP sidecars (portable) or SQLite (faster)?
-2. **Export location** — Default to source folder or ask every time?
-3. **Filename conflicts** — Overwrite, add suffix, or prompt user?
-4. **Multi-select UI** — Ctrl+click or checkbox-based selection?
+1. **Shortcuts** — Should we allow users to customize these shortcuts in a later phase?
+2. **Context Menus** — Should the right-click menu on the filmstrip mirror the Library/Develop/Metadata menus exactly?
 
 ---
 
 ## References
-
-- [Electron Menu API](https://www.electronjs.org/docs/latest/api/menu)
-- [Sharp Documentation](https://sharp.pixelplumbing.com/)
-- [Adobe XMP Specification](https://www.adobe.com/devnet/xmp.html)
+- [Apple Human Interface Guidelines: Menus](https://developer.apple.com/design/human-interface-guidelines/components/menus-and-actions/menus/)
+- [Adobe Lightroom Keyboard Shortcuts](https://helpx.adobe.com/lightroom-classic/help/keyboard-shortcuts.html)

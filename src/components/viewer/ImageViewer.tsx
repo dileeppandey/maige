@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
-import { ZoomIn, ZoomOut, Maximize, Square, Hand } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
 import { useCanvasProcessor } from '../../hooks/useCanvasProcessor'
+import { ExportModal } from '../ExportModal'
 import type { ImageAdjustments } from '../../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 
@@ -278,6 +279,15 @@ export function ImageViewer({
                     title="Hand Tool (Pan)"
                 >
                     <Hand size={14} />
+                </button>
+                <div className="w-px h-4 bg-[#333333] mx-1" />
+                <button
+                    onClick={handleExportClick}
+                    disabled={isLoading || !!error}
+                    className="p-1 hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed text-green-400 hover:text-green-300"
+                    title="Export Image"
+                >
+                    <Download size={14} />
                 </button>
             </div>
 

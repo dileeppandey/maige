@@ -62,6 +62,14 @@ declare global {
             // Event listeners
             onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
             onStartFaceDetection: (callback: (data: { imagePaths: { filePath: string; fileName: string }[] }) => void) => () => void;
+
+            // Export operations
+            showExportSaveDialog: (defaultPath: string, format: 'jpeg' | 'png') => Promise<string | null>;
+            exportImage: (options: { dataUrl: string; outputPath: string; format: 'jpeg' | 'png'; quality: number }) => Promise<{ success: boolean; path?: string; error?: string }>;
+
+            // Preset operations
+            loadPresets: () => Promise<unknown[]>;
+            savePresets: (presets: unknown[]) => Promise<{ success: boolean; error?: string }>;
         };
     }
 }

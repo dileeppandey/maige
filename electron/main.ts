@@ -750,6 +750,89 @@ ipcMain.handle('albums:delete', async (_, albumId: number) => {
     }
 });
 
+// ============================================
+// Export & Preset IPC Handlers
+// ============================================
+
+const PRESETS_FILE = path.join(app.getPath('userData'), 'presets.json');
+
+/**
+ * Show save dialog for export
+ */
+ipcMain.handle('export:showSaveDialog', async (_, defaultPath: string, format: 'jpeg' | 'png') => {
+    const filters = format === 'jpeg'
+        ? [{ name: 'JPEG Image', extensions: ['jpg', 'jpeg'] }]
+        : [{ name: 'PNG Image', extensions: ['png'] }];
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath,
+        filters,
+    });
+
+    if (canceled || !filePath) return null;
+    return filePath;
+});
+
+/**
+ * Export image with edits baked in
+ */
+ipcMain.handle('export:saveImage', async (_, options: {
+    dataUrl: string;
+    outputPath: string;
+    format: 'jpeg' | 'png';
+    quality: number;
+}) => {
+    try {
+        const { dataUrl, outputPath, format, quality } = options;
+
+        // Convert data URL to buffer
+        const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Process with sharp for format conversion and quality
+        let sharpInstance = sharp(buffer);
+
+        if (format === 'jpeg') {
+            sharpInstance = sharpInstance.jpeg({ quality });
+        } else {
+            sharpInstance = sharpInstance.png();
+        }
+
+        await sharpInstance.toFile(outputPath);
+
+        return { success: true, path: outputPath };
+    } catch (error) {
+        console.error('Export failed:', error);
+        return { success: false, error: String(error) };
+    }
+});
+
+/**
+ * Load presets from disk
+ */
+ipcMain.handle('presets:load', async () => {
+    try {
+        const data = await fs.readFile(PRESETS_FILE, 'utf-8');
+        return JSON.parse(data);
+    } catch {
+        // File doesn't exist or is invalid, return empty array
+        return [];
+    }
+});
+
+/**
+ * Save presets to disk
+ */
+ipcMain.handle('presets:save', async (_, presets: unknown[]) => {
+    try {
+        await fs.writeFile(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf-8');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to save presets:', error);
+        return { success: false, error: String(error) };
+    }
+});
+
 const createWindow = () => {
     // Create the browser window.
     console.log('Preload path:', path.join(__dirname, 'preload.js'));

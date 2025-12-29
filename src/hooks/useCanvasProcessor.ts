@@ -16,6 +16,7 @@ interface UseCanvasProcessorReturn {
     showOriginal: () => void
     showProcessed: () => void
     isShowingOriginal: boolean
+    getCanvasDataUrl: (format?: 'image/jpeg' | 'image/png', quality?: number) => string | null
 }
 
 /**
@@ -140,6 +141,13 @@ export function useCanvasProcessor({
         processor.processToCanvas(currentAdjustmentsRef.current, canvas)
     }, [])
 
+    // Get canvas as data URL for export
+    const getCanvasDataUrl = useCallback((format: 'image/jpeg' | 'image/png' = 'image/jpeg', quality = 0.9): string | null => {
+        const canvas = canvasRef.current
+        if (!canvas) return null
+        return canvas.toDataURL(format, quality)
+    }, [])
+
     return {
         canvasRef,
         isLoading,
@@ -148,6 +156,7 @@ export function useCanvasProcessor({
         histogram,
         showOriginal,
         showProcessed,
-        isShowingOriginal
+        isShowingOriginal,
+        getCanvasDataUrl
     }
 }
