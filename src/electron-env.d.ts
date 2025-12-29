@@ -1,4 +1,4 @@
-import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats } from '../shared/types';
+import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats, AlbumRecord, ImageRecord } from '../shared/types';
 
 export { };
 
@@ -30,6 +30,7 @@ declare global {
             getTags: () => Promise<TagInfo[]>;
             getImagesByTag: (tag: string) => Promise<LibraryImage[]>;
             getImageTagsByPath: (filePath: string) => Promise<{ tag: string; score: number; category: string | null }[]>;
+            getImageByPath: (filePath: string) => Promise<ImageRecord | null>;
             search: (query: string) => Promise<SearchResult[]>;
 
             // Face operations (Phase 3)

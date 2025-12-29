@@ -54,12 +54,23 @@ function createSchema(db: Database.Database): void {
             file_size INTEGER,
             width INTEGER,
             height INTEGER,
+            format TEXT,
+            color_space TEXT,
+            has_alpha INTEGER,
             date_taken DATETIME,
             date_imported DATETIME DEFAULT CURRENT_TIMESTAMP,
             
             -- EXIF data
             camera_make TEXT,
             camera_model TEXT,
+            focal_length REAL,
+            aperture REAL,
+            iso INTEGER,
+            shutter_speed TEXT,
+            exposure_program TEXT,
+            metering_mode TEXT,
+            flash TEXT,
+            white_balance TEXT,
             gps_lat REAL,
             gps_lng REAL,
             
@@ -229,10 +240,21 @@ export interface ImageRecord {
     file_size: number | null;
     width: number | null;
     height: number | null;
+    format: string | null;
+    color_space: string | null;
+    has_alpha: number | null;
     date_taken: string | null;
     date_imported: string;
     camera_make: string | null;
     camera_model: string | null;
+    focal_length: number | null;
+    aperture: number | null;
+    iso: number | null;
+    shutter_speed: string | null;
+    exposure_program: string | null;
+    metering_mode: string | null;
+    flash: string | null;
+    white_balance: string | null;
     gps_lat: number | null;
     gps_lng: number | null;
     phash: string | null;
@@ -251,11 +273,19 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
     const stmt = db.prepare(`
         INSERT INTO images (
             file_path, file_name, file_hash, file_size, width, height,
-            date_taken, camera_make, camera_model, gps_lat, gps_lng,
+            format, color_space, has_alpha,
+            date_taken, camera_make, camera_model,
+            focal_length, aperture, iso, shutter_speed,
+            exposure_program, metering_mode, flash, white_balance,
+            gps_lat, gps_lng,
             phash, auto_tags, scene_type, analyzed_at, analysis_version
         ) VALUES (
             @file_path, @file_name, @file_hash, @file_size, @width, @height,
-            @date_taken, @camera_make, @camera_model, @gps_lat, @gps_lng,
+            @format, @color_space, @has_alpha,
+            @date_taken, @camera_make, @camera_model,
+            @focal_length, @aperture, @iso, @shutter_speed,
+            @exposure_program, @metering_mode, @flash, @white_balance,
+            @gps_lat, @gps_lng,
             @phash, @auto_tags, @scene_type, @analyzed_at, @analysis_version
         )
         ON CONFLICT(file_path) DO UPDATE SET
@@ -263,9 +293,20 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
             file_size = excluded.file_size,
             width = excluded.width,
             height = excluded.height,
+            format = excluded.format,
+            color_space = excluded.color_space,
+            has_alpha = excluded.has_alpha,
             date_taken = excluded.date_taken,
             camera_make = excluded.camera_make,
             camera_model = excluded.camera_model,
+            focal_length = excluded.focal_length,
+            aperture = excluded.aperture,
+            iso = excluded.iso,
+            shutter_speed = excluded.shutter_speed,
+            exposure_program = excluded.exposure_program,
+            metering_mode = excluded.metering_mode,
+            flash = excluded.flash,
+            white_balance = excluded.white_balance,
             gps_lat = excluded.gps_lat,
             gps_lng = excluded.gps_lng,
             phash = excluded.phash,
@@ -282,9 +323,20 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
         file_size: image.file_size ?? null,
         width: image.width ?? null,
         height: image.height ?? null,
+        format: image.format ?? null,
+        color_space: image.color_space ?? null,
+        has_alpha: image.has_alpha ?? null,
         date_taken: image.date_taken ?? null,
         camera_make: image.camera_make ?? null,
         camera_model: image.camera_model ?? null,
+        focal_length: image.focal_length ?? null,
+        aperture: image.aperture ?? null,
+        iso: image.iso ?? null,
+        shutter_speed: image.shutter_speed ?? null,
+        exposure_program: image.exposure_program ?? null,
+        metering_mode: image.metering_mode ?? null,
+        flash: image.flash ?? null,
+        white_balance: image.white_balance ?? null,
         gps_lat: image.gps_lat ?? null,
         gps_lng: image.gps_lng ?? null,
         phash: image.phash ?? null,

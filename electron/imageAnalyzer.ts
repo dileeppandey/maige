@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import exifReader from 'exif-reader';
 
 // Image extensions we support
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|cr2|arw|dng|nef|orf|rw2)$/i;
@@ -10,9 +11,20 @@ export interface ImageMetadata {
     width: number;
     height: number;
     format: string;
+    colorSpace?: string;
+    colorProfile?: string;
+    hasAlpha?: boolean;
     dateTaken?: string;
     cameraMake?: string;
     cameraModel?: string;
+    focalLength?: number;
+    aperture?: number;
+    iso?: number;
+    shutterSpeed?: string;
+    exposureProgram?: string;
+    meteringMode?: string;
+    flash?: string;
+    whiteBalance?: string;
     gpsLat?: number;
     gpsLng?: number;
 }
@@ -59,7 +71,7 @@ export async function generatePHash(imagePath: string): Promise<string> {
 }
 
 /**
- * Extract metadata from an image using sharp
+ * Extract metadata from an image using sharp and exif-reader
  */
 export async function extractMetadata(imagePath: string): Promise<ImageMetadata> {
     const metadata = await sharp(imagePath).metadata();
@@ -67,18 +79,121 @@ export async function extractMetadata(imagePath: string): Promise<ImageMetadata>
     let dateTaken: string | undefined;
     let cameraMake: string | undefined;
     let cameraModel: string | undefined;
+    let focalLength: number | undefined;
+    let aperture: number | undefined;
+    let iso: number | undefined;
+    let shutterSpeed: string | undefined;
+    let exposureProgram: string | undefined;
+    let meteringMode: string | undefined;
+    let flash: string | undefined;
+    let whiteBalance: string | undefined;
     let gpsLat: number | undefined;
     let gpsLng: number | undefined;
 
     // Extract EXIF data if available
     if (metadata.exif) {
         try {
-            // Sharp doesn't parse EXIF directly, we'd need exif-reader
-            // For now, we'll use file modification time as fallback
+            const exif = exifReader(metadata.exif);
+
+            // Image/Photo data
+            if (exif.Image) {
+                cameraMake = exif.Image.Make;
+                cameraModel = exif.Image.Model;
+            }
+
+            if (exif.Photo) {
+                // Date taken
+                if (exif.Photo.DateTimeOriginal) {
+                    dateTaken = exif.Photo.DateTimeOriginal instanceof Date
+                        ? exif.Photo.DateTimeOriginal.toISOString()
+                        : String(exif.Photo.DateTimeOriginal);
+                }
+
+                // Camera settings
+                if (exif.Photo.FocalLength) {
+                    focalLength = Number(exif.Photo.FocalLength);
+                }
+                if (exif.Photo.FNumber) {
+                    aperture = Number(exif.Photo.FNumber);
+                }
+                if (exif.Photo.ISOSpeedRatings) {
+                    iso = Array.isArray(exif.Photo.ISOSpeedRatings)
+                        ? exif.Photo.ISOSpeedRatings[0]
+                        : Number(exif.Photo.ISOSpeedRatings);
+                }
+                if (exif.Photo.ExposureTime) {
+                    const expTime = Number(exif.Photo.ExposureTime);
+                    if (expTime < 1) {
+                        shutterSpeed = `1/${Math.round(1 / expTime)}`;
+                    } else {
+                        shutterSpeed = `${expTime}s`;
+                    }
+                }
+
+                // Exposure program
+                const exposurePrograms: Record<number, string> = {
+                    0: 'Unknown', 1: 'Manual', 2: 'Normal', 3: 'Aperture Priority',
+                    4: 'Shutter Priority', 5: 'Creative', 6: 'Action', 7: 'Portrait', 8: 'Landscape'
+                };
+                if (exif.Photo.ExposureProgram !== undefined) {
+                    exposureProgram = exposurePrograms[exif.Photo.ExposureProgram] || 'Unknown';
+                }
+
+                // Metering mode
+                const meteringModes: Record<number, string> = {
+                    0: 'Unknown', 1: 'Average', 2: 'Center-weighted', 3: 'Spot',
+                    4: 'Multi-spot', 5: 'Pattern', 6: 'Partial'
+                };
+                if (exif.Photo.MeteringMode !== undefined) {
+                    meteringMode = meteringModes[exif.Photo.MeteringMode] || 'Unknown';
+                }
+
+                // Flash
+                if (exif.Photo.Flash !== undefined) {
+                    const flashFired = (exif.Photo.Flash & 1) === 1;
+                    flash = flashFired ? 'Fired' : 'No Flash';
+                }
+
+                // White balance
+                if (exif.Photo.WhiteBalance !== undefined) {
+                    whiteBalance = exif.Photo.WhiteBalance === 0 ? 'Auto' : 'Manual';
+                }
+            }
+
+            // GPS data
+            if (exif.GPSInfo) {
+                if (exif.GPSInfo.GPSLatitude && exif.GPSInfo.GPSLatitudeRef) {
+                    const lat = exif.GPSInfo.GPSLatitude;
+                    if (Array.isArray(lat) && lat.length === 3) {
+                        gpsLat = lat[0] + lat[1] / 60 + lat[2] / 3600;
+                        if (exif.GPSInfo.GPSLatitudeRef === 'S') gpsLat = -gpsLat;
+                    }
+                }
+                if (exif.GPSInfo.GPSLongitude && exif.GPSInfo.GPSLongitudeRef) {
+                    const lng = exif.GPSInfo.GPSLongitude;
+                    if (Array.isArray(lng) && lng.length === 3) {
+                        gpsLng = lng[0] + lng[1] / 60 + lng[2] / 3600;
+                        if (exif.GPSInfo.GPSLongitudeRef === 'W') gpsLng = -gpsLng;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('EXIF parsing error:', error);
+            // Fallback to file modification time
+            try {
+                const stats = await fs.stat(imagePath);
+                dateTaken = stats.mtime.toISOString();
+            } catch {
+                // Ignore
+            }
+        }
+    } else {
+        // No EXIF, use file modification time as fallback
+        try {
             const stats = await fs.stat(imagePath);
             dateTaken = stats.mtime.toISOString();
         } catch {
-            // Ignore EXIF parsing errors
+            // Ignore
         }
     }
 
@@ -86,9 +201,20 @@ export async function extractMetadata(imagePath: string): Promise<ImageMetadata>
         width: metadata.width || 0,
         height: metadata.height || 0,
         format: metadata.format || 'unknown',
+        colorSpace: metadata.space,
+        colorProfile: metadata.icc ? 'ICC Profile' : undefined,
+        hasAlpha: metadata.hasAlpha,
         dateTaken,
         cameraMake,
         cameraModel,
+        focalLength,
+        aperture,
+        iso,
+        shutterSpeed,
+        exposureProgram,
+        meteringMode,
+        flash,
+        whiteBalance,
         gpsLat,
         gpsLng,
     };

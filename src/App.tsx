@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import type { FileInfo, LightAdjustments } from '../shared/types'
 import { LibraryPanel } from './components/panels/LibraryPanel'
-import { DevelopPanel } from './components/panels/DevelopPanel'
+import { RightPanel } from './components/panels/RightPanel'
 import { PeoplePanel } from './components/panels/PeoplePanel'
 import { DuplicatesPanel } from './components/panels/DuplicatesPanel'
 import { Filmstrip } from './components/panels/Filmstrip'
@@ -226,7 +226,7 @@ function App() {
           />
         }
         rightPanel={
-          <DevelopPanel
+          <RightPanel
             adjustments={currentAdjustments}
             onLightChange={handleLightChange}
             onCopySettings={handleCopySettings}

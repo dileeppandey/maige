@@ -115,9 +115,20 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
                 file_size: img.fileSize,
                 width: img.metadata.width,
                 height: img.metadata.height,
+                format: img.metadata.format || null,
+                color_space: img.metadata.colorSpace || null,
+                has_alpha: img.metadata.hasAlpha ? 1 : 0,
                 date_taken: img.metadata.dateTaken || null,
                 camera_make: img.metadata.cameraMake || null,
                 camera_model: img.metadata.cameraModel || null,
+                focal_length: img.metadata.focalLength || null,
+                aperture: img.metadata.aperture || null,
+                iso: img.metadata.iso || null,
+                shutter_speed: img.metadata.shutterSpeed || null,
+                exposure_program: img.metadata.exposureProgram || null,
+                metering_mode: img.metadata.meteringMode || null,
+                flash: img.metadata.flash || null,
+                white_balance: img.metadata.whiteBalance || null,
                 gps_lat: img.metadata.gpsLat || null,
                 gps_lng: img.metadata.gpsLng || null,
                 phash: img.phash || null,
@@ -392,6 +403,19 @@ ipcMain.handle('library:getImageTagsByPath', async (_, filePath: string) => {
     } catch (error) {
         console.error('Failed to get image tags:', error);
         return [];
+    }
+});
+
+/**
+ * Get image details by file path
+ */
+ipcMain.handle('library:getImageByPath', async (_, filePath: string) => {
+    try {
+        const { getImageByPath } = await import('./database.js');
+        return getImageByPath(filePath) || null;
+    } catch (error) {
+        console.error('Failed to get image by path:', error);
+        return null;
     }
 });
 

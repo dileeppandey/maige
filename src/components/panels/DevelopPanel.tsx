@@ -61,10 +61,10 @@ export function DevelopPanel({
     }
 
     return (
-        <div className="h-full w-full flex flex-col bg-[#252525] border-l border-r border-[#333333]">
-            <div className="h-12 flex items-center justify-between px-4 border-b border-[#333333]">
-                <span className="font-semibold text-sm text-gray-100 uppercase tracking-wide">Develop</span>
-                <div className="flex items-center gap-1">
+        <div className="h-full w-full flex flex-col bg-[#252525]">
+            <div className="flex-1 overflow-y-auto p-4">
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-1 mb-4">
                     <button
                         onClick={onCopySettings}
                         className="p-1.5 hover:bg-[#333333] rounded text-gray-400 hover:text-gray-200"
@@ -88,9 +88,6 @@ export function DevelopPanel({
                         <RotateCcw size={14} />
                     </button>
                 </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
                 {/* Histogram Placeholder */}
                 <div className="h-32 bg-[#1a1a1a] rounded mb-6 border border-[#333333] flex items-center justify-center text-xs text-gray-600">
                     Histogram

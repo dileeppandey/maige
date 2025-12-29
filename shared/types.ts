@@ -126,6 +126,39 @@ export type AlbumRecord = {
     cover_path?: string;
 };
 
+// Image record (full database record with all EXIF metadata)
+export type ImageRecord = {
+    id: number;
+    file_path: string;
+    file_name: string;
+    file_hash: string | null;
+    file_size: number | null;
+    width: number | null;
+    height: number | null;
+    format: string | null;
+    color_space: string | null;
+    has_alpha: number | null;
+    date_taken: string | null;
+    date_imported: string;
+    camera_make: string | null;
+    camera_model: string | null;
+    focal_length: number | null;
+    aperture: number | null;
+    iso: number | null;
+    shutter_speed: string | null;
+    exposure_program: string | null;
+    metering_mode: string | null;
+    flash: string | null;
+    white_balance: string | null;
+    gps_lat: number | null;
+    gps_lng: number | null;
+    phash: string | null;
+    auto_tags: string | null;
+    scene_type: string | null;
+    analyzed_at: string | null;
+    analysis_version: number;
+};
+
 // Import progress event
 export type ImportProgress = {
     phase: 'scanning' | 'analyzing' | 'saving' | 'detecting_duplicates' | 'ai_tagging' | 'complete';

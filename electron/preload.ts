@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTags: () => ipcRenderer.invoke('library:getTags'),
     getImagesByTag: (tag: string) => ipcRenderer.invoke('library:getImagesByTag', tag),
     getImageTagsByPath: (filePath: string) => ipcRenderer.invoke('library:getImageTagsByPath', filePath),
+    getImageByPath: (filePath: string) => ipcRenderer.invoke('library:getImageByPath', filePath),
     search: (query: string) => ipcRenderer.invoke('library:search', query),
 
     // Face operations (Phase 3)
