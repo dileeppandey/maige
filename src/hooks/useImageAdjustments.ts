@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import type { ImageAdjustments, LightAdjustments } from '../../shared/types'
-import { DEFAULT_IMAGE_ADJUSTMENTS, DEFAULT_LIGHT_ADJUSTMENTS } from '../../shared/types'
+import type { ImageAdjustments, LightAdjustments, ColorAdjustments } from '../../shared/types'
+import { DEFAULT_IMAGE_ADJUSTMENTS, DEFAULT_LIGHT_ADJUSTMENTS, DEFAULT_COLOR_ADJUSTMENTS } from '../../shared/types'
 
 interface ImageEditRecord {
     adjustments: ImageAdjustments
@@ -29,14 +29,25 @@ export function useImageAdjustments() {
 
     // Check if adjustments differ from defaults
     const checkIsDirty = useCallback((adjustments: ImageAdjustments): boolean => {
-        const light = adjustments.light
+        const { light, color } = adjustments
         const defaultLight = DEFAULT_LIGHT_ADJUSTMENTS
-        return (
+        const defaultColor = DEFAULT_COLOR_ADJUSTMENTS // Assuming this is imported or available
+
+        const isLightDirty =
             light.exposure !== defaultLight.exposure ||
             light.contrast !== defaultLight.contrast ||
             light.highlights !== defaultLight.highlights ||
-            light.shadows !== defaultLight.shadows
-        )
+            light.shadows !== defaultLight.shadows ||
+            light.whites !== defaultLight.whites ||
+            light.blacks !== defaultLight.blacks
+
+        const isColorDirty =
+            (color?.temperature ?? 0) !== defaultColor.temperature ||
+            (color?.tint ?? 0) !== defaultColor.tint ||
+            (color?.saturation ?? 0) !== defaultColor.saturation ||
+            (color?.vibrance ?? 0) !== defaultColor.vibrance
+
+        return isLightDirty || isColorDirty
     }, [])
 
     // Update a light adjustment for a specific file
@@ -51,6 +62,33 @@ export function useImageAdjustments() {
                 ...current,
                 light: {
                     ...current.light,
+                    [key]: value
+                }
+            }
+            const newMap = new Map(prev)
+            newMap.set(filePath, {
+                adjustments: newAdjustments,
+                isDirty: checkIsDirty(newAdjustments)
+            })
+            return newMap
+        })
+    }, [checkIsDirty])
+
+    // Update a color adjustment for a specific file
+    const updateColorAdjustment = useCallback((
+        filePath: string,
+        key: keyof ColorAdjustments,
+        value: number
+    ) => {
+        setEditStates(prev => {
+            const current = prev.get(filePath)?.adjustments ?? DEFAULT_IMAGE_ADJUSTMENTS
+            // Ensure color object exists
+            const currentColor = current.color ?? DEFAULT_COLOR_ADJUSTMENTS
+
+            const newAdjustments: ImageAdjustments = {
+                ...current,
+                color: {
+                    ...currentColor,
                     [key]: value
                 }
             }
@@ -81,6 +119,7 @@ export function useImageAdjustments() {
         getAdjustments,
         isDirty,
         updateLightAdjustment,
+        updateColorAdjustment,
         resetAdjustments,
         resetAllAdjustments,
         editStates  // Expose for debugging/save functionality

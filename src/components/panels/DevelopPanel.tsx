@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, Copy, ClipboardPaste, RotateCcw, Tag } from 'lucide-react'
 import { LightPanel } from '../adjustments/LightPanel'
-import type { LightAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types'
+import { ColorPanel } from '../adjustments/ColorPanel'
+import { Histogram } from '../adjustments/Histogram'
+import type { LightAdjustments, ColorAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types'
 
 interface DevelopPanelProps {
     adjustments: ImageAdjustments
     onLightChange: (key: keyof LightAdjustments, value: number) => void
+    onColorChange: (key: keyof ColorAdjustments, value: number) => void
     onCopySettings: () => void
     onPasteSettings: () => void
     onResetSettings: () => void
@@ -14,6 +17,7 @@ interface DevelopPanelProps {
     onApplyPreset: (presetId: string) => void
     onSavePreset: (name: string) => void
     selectedImagePath?: string | null
+    histogramData?: { r: number[]; g: number[]; b: number[]; lum: number[] } | null
 }
 
 interface ImageTagInfo {
@@ -25,6 +29,7 @@ interface ImageTagInfo {
 export function DevelopPanel({
     adjustments,
     onLightChange,
+    onColorChange,
     onCopySettings,
     onPasteSettings,
     onResetSettings,
@@ -32,7 +37,8 @@ export function DevelopPanel({
     presets,
     onApplyPreset,
     onSavePreset,
-    selectedImagePath
+    selectedImagePath,
+    histogramData
 }: DevelopPanelProps) {
     const [imageTags, setImageTags] = useState<ImageTagInfo[]>([])
 
@@ -88,10 +94,8 @@ export function DevelopPanel({
                         <RotateCcw size={14} />
                     </button>
                 </div>
-                {/* Histogram Placeholder */}
-                <div className="h-32 bg-[#1a1a1a] rounded mb-6 border border-[#333333] flex items-center justify-center text-xs text-gray-600">
-                    Histogram
-                </div>
+                {/* Histogram */}
+                <Histogram histogramData={histogramData ?? null} />
 
                 {/* AI Tags Section */}
                 {imageTags.length > 0 && (
@@ -156,7 +160,10 @@ export function DevelopPanel({
                             <ChevronDown size={14} />
                         </div>
                         {/* Color sliders - coming soon */}
-                        <div className="text-xs text-gray-600 italic">Coming soon...</div>
+                        <ColorPanel
+                            adjustments={adjustments.color || { temperature: 0, tint: 0, saturation: 0, vibrance: 0 }}
+                            onAdjustmentChange={onColorChange}
+                        />
                     </div>
                 </div>
             </div>

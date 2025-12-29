@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { ImageAdjustments, StylePreset, LightAdjustments } from '../../shared/types'
-import { DEFAULT_IMAGE_ADJUSTMENTS, DEFAULT_LIGHT_ADJUSTMENTS } from '../../shared/types'
+import type { ImageAdjustments, StylePreset, LightAdjustments, ColorAdjustments } from '../../shared/types'
+import { DEFAULT_IMAGE_ADJUSTMENTS, DEFAULT_LIGHT_ADJUSTMENTS, DEFAULT_COLOR_ADJUSTMENTS } from '../../shared/types'
 
 interface EditRecord {
     adjustments: ImageAdjustments
@@ -25,6 +25,7 @@ interface EditState {
     setSelectedPath: (path: string | null) => void
     getAdjustments: (filePath: string | null) => ImageAdjustments
     updateLightAdjustment: (filePath: string, key: keyof LightAdjustments, value: number) => void
+    updateColorAdjustment: (filePath: string, key: keyof ColorAdjustments, value: number) => void
     setAdjustments: (filePath: string, adjustments: ImageAdjustments) => void
     resetAdjustments: (filePath: string) => void
     resetAllAdjustments: () => void
@@ -42,14 +43,25 @@ interface EditState {
 }
 
 function checkIsDirty(adjustments: ImageAdjustments): boolean {
-    const light = adjustments.light
+    const { light, color } = adjustments
     const defaultLight = DEFAULT_LIGHT_ADJUSTMENTS
-    return (
+    const defaultColor = DEFAULT_COLOR_ADJUSTMENTS
+
+    const isLightDirty =
         light.exposure !== defaultLight.exposure ||
         light.contrast !== defaultLight.contrast ||
         light.highlights !== defaultLight.highlights ||
-        light.shadows !== defaultLight.shadows
-    )
+        light.shadows !== defaultLight.shadows ||
+        light.whites !== defaultLight.whites ||
+        light.blacks !== defaultLight.blacks
+
+    const isColorDirty =
+        (color?.temperature ?? 0) !== defaultColor.temperature ||
+        (color?.tint ?? 0) !== defaultColor.tint ||
+        (color?.saturation ?? 0) !== defaultColor.saturation ||
+        (color?.vibrance ?? 0) !== defaultColor.vibrance
+
+    return isLightDirty || isColorDirty
 }
 
 function generateId(): string {
@@ -77,6 +89,27 @@ export const useEditStore = create<EditState>((set, get) => ({
                 ...current,
                 light: {
                     ...current.light,
+                    [key]: value
+                }
+            }
+            const newEdits = new Map(state.edits)
+            newEdits.set(filePath, {
+                adjustments: newAdjustments,
+                isDirty: checkIsDirty(newAdjustments),
+                lastModified: new Date().toISOString()
+            })
+            return { edits: newEdits }
+        })
+    },
+
+    updateColorAdjustment: (filePath, key, value) => {
+        set((state) => {
+            const current = state.edits.get(filePath)?.adjustments ?? DEFAULT_IMAGE_ADJUSTMENTS
+            const currentColor = current.color ?? DEFAULT_COLOR_ADJUSTMENTS
+            const newAdjustments: ImageAdjustments = {
+                ...current,
+                color: {
+                    ...currentColor,
                     [key]: value
                 }
             }

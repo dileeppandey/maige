@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react'
-import type { FileInfo, LightAdjustments } from '../shared/types'
+import type { FileInfo, LightAdjustments, ColorAdjustments } from '../shared/types'
 import { LibraryPanel } from './components/panels/LibraryPanel'
 import { RightPanel } from './components/panels/RightPanel'
 import { PeoplePanel } from './components/panels/PeoplePanel'
@@ -30,6 +30,7 @@ function App() {
     setSelectedPath,
     getAdjustments,
     updateLightAdjustment,
+    updateColorAdjustment,
     copySettings,
     pasteSettings,
     resetAdjustments,
@@ -49,6 +50,7 @@ function App() {
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
   const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
   const [albumFiles, setAlbumFiles] = React.useState<FileInfo[]>([])
+  const [histogramData, setHistogramData] = React.useState<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>(null)
 
   // Handle person selection - load their photos
   const handleSelectPerson = async (personId: number) => {
@@ -158,6 +160,12 @@ function App() {
     }
   }
 
+  const handleColorChange = (key: keyof ColorAdjustments, value: number) => {
+    if (selectedPath) {
+      updateColorAdjustment(selectedPath, key, value)
+    }
+  }
+
   const handleCopySettings = () => {
     if (selectedPath) {
       copySettings(selectedPath)
@@ -223,12 +231,14 @@ function App() {
           <ImagePreview
             selectedFile={selectedFile}
             adjustments={currentAdjustments}
+            onHistogramChange={setHistogramData}
           />
         }
         rightPanel={
           <RightPanel
             adjustments={currentAdjustments}
             onLightChange={handleLightChange}
+            onColorChange={handleColorChange}
             onCopySettings={handleCopySettings}
             onPasteSettings={handlePasteSettings}
             onResetSettings={handleResetSettings}
@@ -237,6 +247,7 @@ function App() {
             onApplyPreset={handleApplyPreset}
             onSavePreset={handleSavePreset}
             selectedImagePath={selectedFile?.path}
+            histogramData={histogramData}
           />
         }
       />

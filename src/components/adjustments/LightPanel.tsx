@@ -12,6 +12,8 @@ const LIGHT_CONTROLS: { key: keyof LightAdjustments; label: string }[] = [
     { key: 'contrast', label: 'Contrast' },
     { key: 'highlights', label: 'Highlights' },
     { key: 'shadows', label: 'Shadows' },
+    { key: 'whites', label: 'Whites' },
+    { key: 'blacks', label: 'Blacks' },
 ]
 
 export function LightPanel({ adjustments, onAdjustmentChange }: LightPanelProps) {

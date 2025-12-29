@@ -7,13 +7,14 @@ import { useState } from 'react';
 import { Sliders, Info } from 'lucide-react';
 import { DevelopPanel } from './DevelopPanel';
 import { DetailsPanel } from './DetailsPanel';
-import type { LightAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types';
+import type { LightAdjustments, ColorAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types';
 
 type TabType = 'develop' | 'details';
 
 interface RightPanelProps {
     adjustments: ImageAdjustments;
     onLightChange: (key: keyof LightAdjustments, value: number) => void;
+    onColorChange: (key: keyof ColorAdjustments, value: number) => void;
     onCopySettings: () => void;
     onPasteSettings: () => void;
     onResetSettings: () => void;
@@ -22,11 +23,13 @@ interface RightPanelProps {
     onApplyPreset: (presetId: string) => void;
     onSavePreset: (name: string) => void;
     selectedImagePath?: string | null;
+    histogramData?: { r: number[]; g: number[]; b: number[]; lum: number[] } | null;
 }
 
 export function RightPanel({
     adjustments,
     onLightChange,
+    onColorChange,
     onCopySettings,
     onPasteSettings,
     onResetSettings,
@@ -34,7 +37,8 @@ export function RightPanel({
     presets,
     onApplyPreset,
     onSavePreset,
-    selectedImagePath
+    selectedImagePath,
+    histogramData
 }: RightPanelProps) {
     const [activeTab, setActiveTab] = useState<TabType>('develop');
 
@@ -76,6 +80,7 @@ export function RightPanel({
                     <DevelopPanel
                         adjustments={adjustments}
                         onLightChange={onLightChange}
+                        onColorChange={onColorChange}
                         onCopySettings={onCopySettings}
                         onPasteSettings={onPasteSettings}
                         onResetSettings={onResetSettings}
@@ -84,6 +89,7 @@ export function RightPanel({
                         onApplyPreset={onApplyPreset}
                         onSavePreset={onSavePreset}
                         selectedImagePath={selectedImagePath}
+                        histogramData={histogramData}
                     />
                 ) : (
                     <DetailsPanel selectedImagePath={selectedImagePath} />

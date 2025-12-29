@@ -7,6 +7,7 @@ import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 interface ImageViewerProps {
     src: string
     adjustments?: ImageAdjustments
+    onHistogramChange?: (data: { r: number[]; g: number[]; b: number[]; lum: number[] } | null) => void
 }
 
 const MIN_ZOOM = 0.1
@@ -15,7 +16,8 @@ const ZOOM_STEP = 0.25
 
 export function ImageViewer({
     src,
-    adjustments = DEFAULT_IMAGE_ADJUSTMENTS
+    adjustments = DEFAULT_IMAGE_ADJUSTMENTS,
+    onHistogramChange
 }: ImageViewerProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -31,10 +33,15 @@ export function ImageViewer({
     const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
 
     // Canvas processor hook
-    const { canvasRef, isLoading, error, dimensions, showOriginal, showProcessed, isShowingOriginal } = useCanvasProcessor({
+    const { canvasRef, isLoading, error, dimensions, histogram, showOriginal, showProcessed, isShowingOriginal } = useCanvasProcessor({
         src,
         adjustments
     })
+
+    // Propagate histogram changes to parent
+    useEffect(() => {
+        onHistogramChange?.(histogram)
+    }, [histogram, onHistogramChange])
 
     const { width: naturalWidth, height: naturalHeight } = dimensions
 

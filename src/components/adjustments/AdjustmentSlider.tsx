@@ -6,6 +6,7 @@ interface AdjustmentSliderProps {
     min?: number
     max?: number
     onChange: (value: number) => void
+    icon?: React.ReactNode
 }
 
 export function AdjustmentSlider({
@@ -13,7 +14,8 @@ export function AdjustmentSlider({
     value,
     min = -100,
     max = 100,
-    onChange
+    onChange,
+    icon
 }: AdjustmentSliderProps) {
     const trackRef = useRef<HTMLDivElement>(null)
 
@@ -38,7 +40,10 @@ export function AdjustmentSlider({
         <div className="space-y-1.5">
             {/* Label and value */}
             <div className="flex justify-between text-xs text-gray-400">
-                <span>{label}</span>
+                <div className="flex items-center gap-2">
+                    {icon && <span className="opacity-70">{icon}</span>}
+                    <span>{label}</span>
+                </div>
                 <span className={`tabular-nums w-10 text-right ${value !== 0 ? 'text-gray-300' : 'text-gray-500'}`}>
                     {value > 0 ? `+${value}` : value}
                 </span>

@@ -46,6 +46,10 @@ function applyContrast(data: Uint8ClampedArray, value: number): void {
  * Apply highlights adjustment (affects bright pixels)
  * Value: -100 to 100 (0 = no change)
  */
+/**
+ * Apply highlights adjustment (affects bright pixels)
+ * Value: -100 to 100 (0 = no change)
+ */
 function applyHighlights(data: Uint8ClampedArray, value: number): void {
     if (value === 0) return
     const strength = value / 100
@@ -79,6 +83,115 @@ function applyShadows(data: Uint8ClampedArray, value: number): void {
             data[i + 1] = clamp(data[i + 1] * adjustment)
             data[i + 2] = clamp(data[i + 2] * adjustment)
         }
+    }
+}
+
+/**
+ * Apply whites adjustment (affects very bright pixels, shifting white point)
+ * Value: -100 to 100
+ */
+function applyWhites(data: Uint8ClampedArray, value: number): void {
+    if (value === 0) return
+    const strength = value / 100
+    for (let i = 0; i < data.length; i += 4) {
+        const lum = getLuminance(data[i], data[i + 1], data[i + 2])
+        if (lum > 0.8) { // Affect top 20%
+            const weight = (lum - 0.8) * 5
+            const factor = 1 + (strength * weight * 0.2) // Subtle boost
+            data[i] = clamp(data[i] * factor)
+            data[i + 1] = clamp(data[i + 1] * factor)
+            data[i + 2] = clamp(data[i + 2] * factor)
+        }
+    }
+}
+
+/**
+ * Apply blacks adjustment (affects very dark pixels, shifting black point)
+ * Value: -100 to 100
+ */
+function applyBlacks(data: Uint8ClampedArray, value: number): void {
+    if (value === 0) return
+    const strength = value / 100
+    for (let i = 0; i < data.length; i += 4) {
+        const lum = getLuminance(data[i], data[i + 1], data[i + 2])
+        if (lum < 0.2) { // Affect bottom 20%
+            const weight = (0.2 - lum) * 5
+            const factor = 1 + (strength * weight * 0.2)
+            // For blacks, positive value should brighten (lift blacks), negative should darken
+            data[i] = clamp(data[i] * factor)
+            data[i + 1] = clamp(data[i + 1] * factor)
+            data[i + 2] = clamp(data[i + 2] * factor)
+        }
+    }
+}
+
+/**
+ * Apply temperature and tint
+ * Temp: -100 (Blue) to 100 (Yellow)
+ * Tint: -100 (Green) to 100 (Magenta)
+ */
+function applyTemperatureTint(data: Uint8ClampedArray, temp: number, tint: number): void {
+    if (temp === 0 && tint === 0) return
+
+    // Temp: Blue <-> Yellow. Adjust Red and Blue channels.
+    // +Temp = More Red, Less Blue
+    const rScale = 1 + (temp / 100) * 0.2
+    const bScale = 1 - (temp / 100) * 0.2
+
+    // Tint: Green <-> Magenta. Adjust Green channel.
+    // +Tint = Magenta (Less Green)
+    // -Tint = Green (More Green)
+    const gScale = 1 - (tint / 100) * 0.2
+
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = clamp(data[i] * rScale)
+        data[i + 1] = clamp(data[i + 1] * gScale)
+        data[i + 2] = clamp(data[i + 2] * bScale)
+    }
+}
+
+/**
+ * Apply Saturation and Vibrance
+ * Saturation: Linear multiplier on chroma
+ * Vibrance: Smart saturation (boosts muted colors more than saturated ones)
+ */
+function applySaturationVibrance(data: Uint8ClampedArray, sat: number, vib: number): void {
+    if (sat === 0 && vib === 0) return
+
+    const satMult = 1 + (sat / 100)
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
+
+        const max = Math.max(r, g, b)
+        const min = Math.min(r, g, b)
+        const range = max - min
+
+        // Skip greys
+        if (range === 0) continue
+
+        const currentSat = range / (max + min) // Simplified saturation estimate
+
+        // Vibrance factor: Apply less if already saturated
+        // If currentSat is high, vibFactor closes to 1 (no change) from vibrance
+        // If currentSat is low, vibFactor applies full vibrance
+        const vFactor = 1 + (vib / 100) * (1 - currentSat)
+
+        // Combined global saturation and dynamic vibrance
+        const factor = satMult * vFactor
+
+        if (factor === 1) continue
+
+        // Lerp towards luminance (greyscale) or away from it
+        // A simple implementation of saturation is adjusting distance from luminance
+        // NewColor = Lum + (Color - Lum) * Factor
+        const gray = getLuminance(r, g, b) * 255
+
+        data[i] = clamp(gray + (r - gray) * factor)
+        data[i + 1] = clamp(gray + (g - gray) * factor)
+        data[i + 2] = clamp(gray + (b - gray) * factor)
     }
 }
 
@@ -148,6 +261,15 @@ export class ImageProcessor {
         applyContrast(data, light.contrast)
         applyHighlights(data, light.highlights)
         applyShadows(data, light.shadows)
+        applyWhites(data, light.whites)
+        applyBlacks(data, light.blacks)
+
+        // Apply color adjustments
+        const { color } = adjustments
+        if (color) {
+            applyTemperatureTint(data, color.temperature, color.tint)
+            applySaturationVibrance(data, color.saturation, color.vibrance)
+        }
 
         return imageData
     }

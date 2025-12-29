@@ -17,6 +17,8 @@ export type LightAdjustments = {
     contrast: number;    // -100 to 100, default 0
     highlights: number;  // -100 to 100, default 0
     shadows: number;     // -100 to 100, default 0
+    whites: number;      // -100 to 100, default 0
+    blacks: number;      // -100 to 100, default 0
 };
 
 // Color adjustments (Temperature, Tint, Saturation, Vibrance)
@@ -62,6 +64,8 @@ export const DEFAULT_LIGHT_ADJUSTMENTS: LightAdjustments = {
     contrast: 0,
     highlights: 0,
     shadows: 0,
+    whites: 0,
+    blacks: 0,
 };
 
 export const DEFAULT_COLOR_ADJUSTMENTS: ColorAdjustments = {
