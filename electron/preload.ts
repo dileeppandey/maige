@@ -50,6 +50,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setPersonHidden: (personId: number, hidden: boolean) =>
         ipcRenderer.invoke('people:setHidden', personId, hidden),
 
+    // Album operations
+    createAlbum: (name: string, description?: string) =>
+        ipcRenderer.invoke('albums:create', name, description),
+    getAlbums: () => ipcRenderer.invoke('albums:list'),
+    getAlbumImages: (albumId: number) => ipcRenderer.invoke('albums:getImages', albumId),
+    addPhotosToAlbum: (albumId: number, imageIds: number[]) =>
+        ipcRenderer.invoke('albums:addPhotos', albumId, imageIds),
+    removePhotosFromAlbum: (albumId: number, imageIds: number[]) =>
+        ipcRenderer.invoke('albums:removePhotos', albumId, imageIds),
+    updateAlbum: (albumId: number, updates: { name?: string; description?: string; cover_image_id?: number | null }) =>
+        ipcRenderer.invoke('albums:update', albumId, updates),
+    deleteAlbum: (albumId: number) => ipcRenderer.invoke('albums:delete', albumId),
+
     // Progress listener (returns cleanup function)
     onImportProgress: (callback: (progress: unknown) => void) => {
         const handler = (_event: unknown, progress: unknown) => callback(progress);

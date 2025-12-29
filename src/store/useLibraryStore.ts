@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, TagInfo, SearchResult } from '../../shared/types';
+import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, TagInfo, SearchResult, AlbumRecord } from '../../shared/types';
 
 interface LibraryState {
     // Data
@@ -7,9 +7,18 @@ interface LibraryState {
     duplicateGroups: DuplicateGroup[];
     stats: LibraryStats;
     tags: TagInfo[];
+    albums: AlbumRecord[];
 
-    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups
-    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates';
+    // Selection state for bulk operations
+    selectedImageIds: Set<number>;
+
+    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups, 'album' = album view
+    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates' | 'album';
+    selectedAlbumId: number | null;
+
+    // "Add Photos to Album" pick mode
+    addingToAlbumId: number | null;
+    albumExistingImageIds: Set<number>; // IDs of images already in the target album
 
     // Search state
     searchQuery: string;
@@ -25,6 +34,7 @@ interface LibraryState {
     loadDuplicates: () => Promise<void>;
     loadStats: () => Promise<void>;
     loadTags: () => Promise<void>;
+    loadAlbums: () => Promise<void>;
     importFolder: (path: string) => Promise<void>;
     setImportProgress: (progress: ImportProgress | null) => void;
     search: (query: string) => Promise<void>;
@@ -33,6 +43,23 @@ interface LibraryState {
     showAllPhotos: () => Promise<void>;
     showPeople: () => void;
     showDuplicates: () => Promise<void>;
+    showAlbum: (albumId: number) => void;
+
+    // Selection actions
+    toggleImageSelection: (imageId: number) => void;
+    selectImages: (imageIds: number[]) => void;
+    clearSelection: () => void;
+    selectAll: () => void;
+
+    // Album actions
+    createAlbum: (name: string, description?: string) => Promise<AlbumRecord | null>;
+    addSelectedToAlbum: (albumId: number) => Promise<void>;
+    deleteAlbum: (albumId: number) => Promise<void>;
+
+    // Add Photos to Album pick mode actions
+    startAddingToAlbum: (albumId: number) => Promise<void>;
+    confirmAddToAlbum: () => Promise<void>;
+    cancelAddToAlbum: () => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -41,7 +68,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     duplicateGroups: [],
     stats: { totalImages: 0, duplicateGroups: 0 },
     tags: [],
+    albums: [],
+    selectedImageIds: new Set(),
     viewMode: 'folder',
+    selectedAlbumId: null,
+    addingToAlbumId: null,
+    albumExistingImageIds: new Set(),
     searchQuery: '',
     searchResults: [],
     isSearching: false,
@@ -191,6 +223,156 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         } catch (error) {
             console.error('Failed to show duplicates:', error);
         }
+    },
+
+    // Show album view
+    showAlbum: (albumId: number) => {
+        set({ viewMode: 'album', selectedAlbumId: albumId, searchQuery: '', searchResults: [] });
+    },
+
+    // Load albums
+    loadAlbums: async () => {
+        try {
+            const albums = await window.electronAPI.getAlbums();
+            set({ albums });
+        } catch (error) {
+            console.error('Failed to load albums:', error);
+        }
+    },
+
+    // Selection actions
+    toggleImageSelection: (imageId: number) => {
+        set((state) => {
+            const newSet = new Set(state.selectedImageIds);
+            if (newSet.has(imageId)) {
+                newSet.delete(imageId);
+            } else {
+                newSet.add(imageId);
+            }
+            return { selectedImageIds: newSet };
+        });
+    },
+
+    selectImages: (imageIds: number[]) => {
+        set((state) => {
+            const newSet = new Set(state.selectedImageIds);
+            imageIds.forEach(id => newSet.add(id));
+            return { selectedImageIds: newSet };
+        });
+    },
+
+    clearSelection: () => {
+        set({ selectedImageIds: new Set() });
+    },
+
+    selectAll: () => {
+        const { images, searchResults, viewMode } = get();
+        const idsToSelect = viewMode === 'library' || viewMode === 'search' || viewMode === 'tag'
+            ? searchResults.map(r => r.id)
+            : images.map(i => i.id);
+        set({ selectedImageIds: new Set(idsToSelect) });
+    },
+
+    // Album CRUD actions
+    createAlbum: async (name: string, description?: string) => {
+        try {
+            const album = await window.electronAPI.createAlbum(name, description);
+            if (album) {
+                await get().loadAlbums();
+            }
+            return album;
+        } catch (error) {
+            console.error('Failed to create album:', error);
+            return null;
+        }
+    },
+
+    addSelectedToAlbum: async (albumId: number) => {
+        const { selectedImageIds } = get();
+        if (selectedImageIds.size === 0) return;
+
+        try {
+            await window.electronAPI.addPhotosToAlbum(albumId, Array.from(selectedImageIds));
+            await get().loadAlbums();
+            set({ selectedImageIds: new Set() });
+        } catch (error) {
+            console.error('Failed to add photos to album:', error);
+        }
+    },
+
+    deleteAlbum: async (albumId: number) => {
+        try {
+            await window.electronAPI.deleteAlbum(albumId);
+            await get().loadAlbums();
+            if (get().selectedAlbumId === albumId) {
+                set({ viewMode: 'library', selectedAlbumId: null });
+            }
+        } catch (error) {
+            console.error('Failed to delete album:', error);
+        }
+    },
+
+    // Start "Add Photos" pick mode - switch to library view while remembering target album
+    startAddingToAlbum: async (albumId: number) => {
+        // First, fetch the images already in this album
+        try {
+            const existingImages = await window.electronAPI.getAlbumImages(albumId);
+            const existingIds = new Set(existingImages.map(img => img.id));
+
+            set({
+                addingToAlbumId: albumId,
+                viewMode: 'library',
+                selectedImageIds: new Set(),
+                albumExistingImageIds: existingIds,
+            });
+        } catch (error) {
+            console.error('Failed to load album images:', error);
+            set({
+                addingToAlbumId: albumId,
+                viewMode: 'library',
+                selectedImageIds: new Set(),
+                albumExistingImageIds: new Set(),
+            });
+        }
+        // Load all photos so user can pick from them
+        get().showAllPhotos();
+    },
+
+    // Confirm adding selected photos to the target album
+    confirmAddToAlbum: async () => {
+        const { addingToAlbumId, selectedImageIds } = get();
+        if (!addingToAlbumId || selectedImageIds.size === 0) {
+            // Just exit pick mode if nothing selected
+            set({ addingToAlbumId: null, viewMode: 'album', selectedImageIds: new Set(), albumExistingImageIds: new Set() });
+            return;
+        }
+
+        try {
+            await window.electronAPI.addPhotosToAlbum(addingToAlbumId, Array.from(selectedImageIds));
+            await get().loadAlbums();
+            // Return to viewing the album
+            set({
+                viewMode: 'album',
+                selectedAlbumId: addingToAlbumId,
+                addingToAlbumId: null,
+                selectedImageIds: new Set(),
+                albumExistingImageIds: new Set(),
+            });
+        } catch (error) {
+            console.error('Failed to add photos to album:', error);
+        }
+    },
+
+    // Cancel pick mode and return to album view
+    cancelAddToAlbum: () => {
+        const { addingToAlbumId } = get();
+        set({
+            viewMode: 'album',
+            selectedAlbumId: addingToAlbumId,
+            addingToAlbumId: null,
+            selectedImageIds: new Set(),
+            albumExistingImageIds: new Set(),
+        });
     },
 }));
 

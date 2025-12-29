@@ -72,7 +72,7 @@ export async function detectFacesInImage(imageElement: HTMLImageElement): Promis
             keypoints: detection.keypoints?.map(kp => ({
                 x: kp.x,
                 y: kp.y,
-                name: kp.name || 'unknown',
+                name: (kp as { name?: string }).name || 'unknown',
             })),
             confidence: detection.categories?.[0]?.score ?? 0,
         };

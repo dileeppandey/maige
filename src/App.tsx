@@ -7,6 +7,8 @@ import { DuplicatesPanel } from './components/panels/DuplicatesPanel'
 import { Filmstrip } from './components/panels/Filmstrip'
 import { ImagePreview } from './components/layout/ImagePreview'
 import { ResizableLayout } from './components/layout/ResizableLayout'
+import { FloatingActionBar } from './components/FloatingActionBar'
+import { PickModeHeader } from './components/PickModeHeader'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
@@ -38,7 +40,7 @@ function App() {
   } = useEditStore()
 
   // Get search state from library store
-  const { searchResults, viewMode, showAllPhotos } = useLibraryStore()
+  const { searchResults, viewMode, showAllPhotos, selectedAlbumId } = useLibraryStore()
 
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
@@ -46,6 +48,7 @@ function App() {
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
   const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
+  const [albumFiles, setAlbumFiles] = React.useState<FileInfo[]>([])
 
   // Handle person selection - load their photos
   const handleSelectPerson = async (personId: number) => {
@@ -68,11 +71,40 @@ function App() {
     }
   }
 
-  // Compute display files: person files, search/library results, or folder files
+  // Load album files when selectedAlbumId changes
+  useEffect(() => {
+    const loadAlbumFiles = async () => {
+      if (viewMode === 'album' && selectedAlbumId) {
+        try {
+          const images = await window.electronAPI.getAlbumImages(selectedAlbumId)
+          const fileInfos: FileInfo[] = images.map(img => ({
+            name: img.file_path.split('/').pop() || '',
+            path: img.file_path,
+            isDirectory: false,
+            type: 'image' as const,
+          }))
+          setAlbumFiles(fileInfos)
+          // Select first photo if available
+          if (fileInfos.length > 0) {
+            setSelectedFile(fileInfos[0])
+          }
+        } catch (error) {
+          console.error('Failed to load album images:', error)
+        }
+      }
+    }
+    loadAlbumFiles()
+  }, [viewMode, selectedAlbumId])
+
+  // Compute display files: person files, album files, search/library results, or folder files
   const displayFiles = useMemo<FileInfo[]>(() => {
     // If person is selected, show their photos
     if (viewMode === 'people' && selectedPersonId && personFiles.length > 0) {
       return personFiles
+    }
+    // If album is selected, show album photos
+    if (viewMode === 'album' && selectedAlbumId && albumFiles.length > 0) {
+      return albumFiles
     }
     // Show search results for search, tag filter, or library view modes
     if ((viewMode === 'library' || viewMode === 'search' || viewMode === 'tag') && searchResults.length > 0) {
@@ -86,7 +118,7 @@ function App() {
       }))
     }
     return files
-  }, [viewMode, searchResults, files, selectedPersonId, personFiles])
+  }, [viewMode, searchResults, files, selectedPersonId, personFiles, selectedAlbumId, albumFiles])
 
   // Sync selected file with edit store
   useEffect(() => {
@@ -157,6 +189,9 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-[#1e1e1e] text-gray-300 font-sans overflow-hidden">
 
+      {/* Pick Mode Header (shown when adding photos to album) */}
+      <PickModeHeader />
+
       {/* Top Main Area (Columns) */}
       <ResizableLayout
         leftPanel={
@@ -211,6 +246,9 @@ function App() {
         selectedFile={selectedFile}
         onSelectFile={setSelectedFile}
       />
+
+      {/* Floating Action Bar for bulk operations */}
+      <FloatingActionBar />
 
     </div>
   )

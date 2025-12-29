@@ -1,7 +1,204 @@
-import { useEffect, useState } from 'react'
-import type { FileInfo } from '../../../shared/types'
-import { FolderOpen, Images, Copy, Loader2, Search, Tag, X } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import type { FileInfo, AlbumRecord } from '../../../shared/types'
+import { FolderOpen, Images, Copy, Loader2, Search, Tag, X, Folder, Plus, MoreHorizontal, Trash2, ImagePlus, Pencil } from 'lucide-react'
 import { useLibraryStore, setupLibraryProgressListener } from '../../store/useLibraryStore'
+import { EditAlbumModal } from '../EditAlbumModal'
+
+// AlbumsSection Component
+function AlbumsSection() {
+    const { albums, loadAlbums, createAlbum, deleteAlbum, showAlbum, viewMode, selectedAlbumId, startAddingToAlbum } = useLibraryStore()
+    const [showNewInput, setShowNewInput] = useState(false)
+    const [newName, setNewName] = useState('')
+    const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
+    const [dragOverAlbumId, setDragOverAlbumId] = useState<number | null>(null)
+    const [editingAlbum, setEditingAlbum] = useState<AlbumRecord | null>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        loadAlbums()
+    }, [loadAlbums])
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuOpenId !== null && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setMenuOpenId(null)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [menuOpenId])
+
+    const handleCreate = async () => {
+        if (!newName.trim()) return
+        await createAlbum(newName.trim())
+        setNewName('')
+        setShowNewInput(false)
+    }
+
+    const handleDragOver = (e: React.DragEvent, albumId: number) => {
+        e.preventDefault()
+        setDragOverAlbumId(albumId)
+    }
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault()
+        setDragOverAlbumId(null)
+    }
+
+    const handleDrop = async (e: React.DragEvent, albumId: number) => {
+        e.preventDefault()
+        setDragOverAlbumId(null)
+
+        try {
+            const data = JSON.parse(e.dataTransfer.getData('application/json'))
+            if (data && data.imageIds && Array.isArray(data.imageIds)) {
+                await window.electronAPI.addPhotosToAlbum(albumId, data.imageIds)
+                await loadAlbums()
+            }
+        } catch (error) {
+            console.error('Failed to drop photos:', error)
+        }
+    }
+
+    return (
+        <div className="mt-4 px-2">
+            <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
+                <div className="flex items-center gap-1">
+                    <Folder size={12} />
+                    <span>Albums</span>
+                </div>
+                <button
+                    onClick={() => setShowNewInput(!showNewInput)}
+                    className="hover:text-white"
+                    title="Create Album"
+                >
+                    <Plus size={14} />
+                </button>
+            </div>
+
+            {showNewInput && (
+                <div className="px-2 mb-2 flex gap-1">
+                    <input
+                        type="text"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                        placeholder="Album name..."
+                        className="flex-1 px-2 py-1 text-xs bg-[#1a1a1a] border border-[#333333] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        autoFocus
+                    />
+                    <button onClick={handleCreate} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
+                        Add
+                    </button>
+                </div>
+            )}
+
+            {albums.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-gray-500 text-center">
+                    No albums yet
+                </div>
+            ) : (
+                <div className="space-y-0.5">
+                    {albums.map((album) => (
+                        <div
+                            key={album.id}
+                            className={`group relative flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${dragOverAlbumId === album.id ? 'bg-blue-600/50 border border-blue-500' :
+                                viewMode === 'album' && selectedAlbumId === album.id
+                                    ? 'bg-green-600 text-white'
+                                    : 'text-gray-300 hover:bg-[#333333] border border-transparent'
+                                }`}
+                            onClick={() => showAlbum(album.id)}
+                            onDragOver={(e) => handleDragOver(e, album.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, album.id)}
+                        >
+                            <div className="w-6 h-6 rounded bg-gray-700 overflow-hidden flex-shrink-0">
+                                {album.cover_path ? (
+                                    <img
+                                        src={`media://${encodeURIComponent(album.cover_path)}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                        <Folder size={12} />
+                                    </div>
+                                )}
+                            </div>
+                            <span className="flex-1 text-sm truncate">{album.name}</span>
+                            <span className={`text-xs ${viewMode === 'album' && selectedAlbumId === album.id ? 'text-green-200' : 'text-gray-500'}`}>
+                                {album.photo_count ?? 0}
+                            </span>
+
+                            {/* Context menu trigger */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setMenuOpenId(menuOpenId === album.id ? null : album.id)
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-600 rounded"
+                            >
+                                <MoreHorizontal size={14} />
+                            </button>
+
+                            {/* Context menu */}
+                            {menuOpenId === album.id && (
+                                <div
+                                    ref={menuRef}
+                                    className="absolute right-0 top-full mt-1 z-10 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[140px]"
+                                >
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            startAddingToAlbum(album.id)
+                                            setMenuOpenId(null)
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 w-full text-left"
+                                    >
+                                        <ImagePlus size={12} />
+                                        Add Photos
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setEditingAlbum(album)
+                                            setMenuOpenId(null)
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 w-full text-left"
+                                    >
+                                        <Pencil size={12} />
+                                        Edit Album
+                                    </button>
+                                    <div className="border-t border-gray-700 my-1" />
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            deleteAlbum(album.id)
+                                            setMenuOpenId(null)
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 w-full text-left"
+                                    >
+                                        <Trash2 size={12} />
+                                        Delete Album
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Edit Album Modal */}
+            {editingAlbum && (
+                <EditAlbumModal
+                    album={editingAlbum}
+                    onClose={() => setEditingAlbum(null)}
+                />
+            )}
+        </div>
+    )
+}
 
 interface LibraryPanelProps {
     currentPath: string | null
@@ -260,6 +457,9 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                         <span className={`ml-auto text-xs ${viewMode === 'people' ? 'text-purple-200' : 'text-purple-400'}`}>New</span>
                     </button>
                 </div>
+
+                {/* Albums Section */}
+                <AlbumsSection />
 
                 {/* Tags Section */}
                 {tags.length > 0 && (

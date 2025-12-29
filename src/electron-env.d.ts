@@ -49,6 +49,15 @@ declare global {
             updatePersonName: (personId: number, name: string) => Promise<boolean>;
             setPersonHidden: (personId: number, hidden: boolean) => Promise<boolean>;
 
+            // Album operations
+            createAlbum: (name: string, description?: string) => Promise<AlbumRecord | null>;
+            getAlbums: () => Promise<AlbumRecord[]>;
+            getAlbumImages: (albumId: number) => Promise<LibraryImage[]>;
+            addPhotosToAlbum: (albumId: number, imageIds: number[]) => Promise<{ added: number }>;
+            removePhotosFromAlbum: (albumId: number, imageIds: number[]) => Promise<{ removed: number }>;
+            updateAlbum: (albumId: number, updates: { name?: string; description?: string; cover_image_id?: number | null }) => Promise<boolean>;
+            deleteAlbum: (albumId: number) => Promise<boolean>;
+
             // Event listeners
             onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
             onStartFaceDetection: (callback: (data: { imagePaths: { filePath: string; fileName: string }[] }) => void) => () => void;

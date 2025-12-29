@@ -11,6 +11,13 @@ import {
     getLibraryStats,
     createDuplicateGroups,
     getDuplicateGroups,
+    createAlbum,
+    getAllAlbums,
+    getAlbumImages,
+    addPhotosToAlbum,
+    removePhotosFromAlbum,
+    updateAlbum,
+    deleteAlbum,
 } from './database.js';
 import {
     scanDirectoryRecursive,
@@ -626,6 +633,96 @@ ipcMain.handle('faces:getThumbnail', async (_, faceId: number) => {
     } catch (error) {
         console.error('Failed to get face thumbnail:', error);
         return null;
+    }
+});
+
+// ============================================
+// Album IPC Handlers
+// ============================================
+
+/**
+ * Create a new album
+ */
+ipcMain.handle('albums:create', async (_, name: string, description?: string) => {
+    try {
+        return createAlbum(name, description);
+    } catch (error) {
+        console.error('Failed to create album:', error);
+        return null;
+    }
+});
+
+/**
+ * Get all albums
+ */
+ipcMain.handle('albums:list', async () => {
+    try {
+        return getAllAlbums();
+    } catch (error) {
+        console.error('Failed to list albums:', error);
+        return [];
+    }
+});
+
+/**
+ * Get images in an album
+ */
+ipcMain.handle('albums:getImages', async (_, albumId: number) => {
+    try {
+        return getAlbumImages(albumId);
+    } catch (error) {
+        console.error('Failed to get album images:', error);
+        return [];
+    }
+});
+
+/**
+ * Add photos to an album
+ */
+ipcMain.handle('albums:addPhotos', async (_, albumId: number, imageIds: number[]) => {
+    try {
+        return addPhotosToAlbum(albumId, imageIds);
+    } catch (error) {
+        console.error('Failed to add photos to album:', error);
+        return { added: 0 };
+    }
+});
+
+/**
+ * Remove photos from an album
+ */
+ipcMain.handle('albums:removePhotos', async (_, albumId: number, imageIds: number[]) => {
+    try {
+        return removePhotosFromAlbum(albumId, imageIds);
+    } catch (error) {
+        console.error('Failed to remove photos from album:', error);
+        return { removed: 0 };
+    }
+});
+
+/**
+ * Update album details
+ */
+ipcMain.handle('albums:update', async (_, albumId: number, updates: { name?: string; description?: string; cover_image_id?: number | null }) => {
+    try {
+        updateAlbum(albumId, updates);
+        return true;
+    } catch (error) {
+        console.error('Failed to update album:', error);
+        return false;
+    }
+});
+
+/**
+ * Delete an album
+ */
+ipcMain.handle('albums:delete', async (_, albumId: number) => {
+    try {
+        deleteAlbum(albumId);
+        return true;
+    } catch (error) {
+        console.error('Failed to delete album:', error);
+        return false;
     }
 });
 

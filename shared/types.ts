@@ -114,6 +114,18 @@ export type LibraryStats = {
     duplicateGroups: number;
 };
 
+// Album record
+export type AlbumRecord = {
+    id: number;
+    name: string;
+    description: string | null;
+    cover_image_id: number | null;
+    created_at: string;
+    updated_at: string;
+    photo_count?: number;
+    cover_path?: string;
+};
+
 // Import progress event
 export type ImportProgress = {
     phase: 'scanning' | 'analyzing' | 'saving' | 'detecting_duplicates' | 'ai_tagging' | 'complete';

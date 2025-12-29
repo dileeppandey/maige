@@ -157,6 +157,31 @@ function createSchema(db: Database.Database): void {
         )
     `);
 
+    // ============================================
+    // Albums (Manual Organization)
+    // ============================================
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS albums (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            cover_image_id INTEGER REFERENCES images(id) ON DELETE SET NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS album_items (
+            album_id INTEGER REFERENCES albums(id) ON DELETE CASCADE,
+            image_id INTEGER REFERENCES images(id) ON DELETE CASCADE,
+            position INTEGER DEFAULT 0,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (album_id, image_id)
+        )
+    `);
+
     // Create indexes
     db.exec(`
         CREATE INDEX IF NOT EXISTS idx_images_phash ON images(phash);
@@ -167,6 +192,8 @@ function createSchema(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id);
         CREATE INDEX IF NOT EXISTS idx_faces_image ON faces(image_id);
         CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
+        CREATE INDEX IF NOT EXISTS idx_album_items_album ON album_items(album_id);
+        CREATE INDEX IF NOT EXISTS idx_album_items_image ON album_items(image_id);
     `);
 }
 
@@ -858,3 +885,156 @@ export function cleanupDuplicateFaces(): { duplicatesRemoved: number; imagesAffe
     console.log(`Cleaned up ${duplicatesRemoved} duplicate faces across ${duplicates.length} images`);
     return { duplicatesRemoved, imagesAffected: duplicates.length };
 }
+
+// ============================================
+// Album Operations
+// ============================================
+
+export interface AlbumRecord {
+    id: number;
+    name: string;
+    description: string | null;
+    cover_image_id: number | null;
+    created_at: string;
+    updated_at: string;
+    photo_count?: number;
+    cover_path?: string;
+}
+
+/**
+ * Create a new album
+ */
+export function createAlbum(name: string, description?: string): AlbumRecord {
+    const db = getDatabase();
+
+    const result = db.prepare(`
+        INSERT INTO albums (name, description)
+        VALUES (?, ?)
+    `).run(name, description ?? null);
+
+    return {
+        id: result.lastInsertRowid as number,
+        name,
+        description: description ?? null,
+        cover_image_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        photo_count: 0,
+    };
+}
+
+/**
+ * Get all albums with photo counts and cover images
+ */
+export function getAllAlbums(): AlbumRecord[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT 
+            a.*,
+            COUNT(ai.image_id) as photo_count,
+            COALESCE(cover.file_path, first_img.file_path) as cover_path
+        FROM albums a
+        LEFT JOIN album_items ai ON ai.album_id = a.id
+        LEFT JOIN images cover ON cover.id = a.cover_image_id
+        LEFT JOIN (
+            SELECT ai2.album_id, i.file_path
+            FROM album_items ai2
+            JOIN images i ON i.id = ai2.image_id
+            WHERE ai2.position = (
+                SELECT MIN(position) FROM album_items WHERE album_id = ai2.album_id
+            )
+        ) first_img ON first_img.album_id = a.id
+        GROUP BY a.id
+        ORDER BY a.updated_at DESC
+    `).all() as AlbumRecord[];
+}
+
+/**
+ * Get images in an album
+ */
+export function getAlbumImages(albumId: number): ImageRecord[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT i.* FROM images i
+        JOIN album_items ai ON ai.image_id = i.id
+        WHERE ai.album_id = ?
+        ORDER BY ai.position ASC, ai.added_at ASC
+    `).all(albumId) as ImageRecord[];
+}
+
+/**
+ * Add photos to an album
+ */
+export function addPhotosToAlbum(albumId: number, imageIds: number[]): { added: number } {
+    const db = getDatabase();
+
+    const stmt = db.prepare(`
+        INSERT OR IGNORE INTO album_items (album_id, image_id, position)
+        VALUES (?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM album_items WHERE album_id = ?))
+    `);
+
+    let added = 0;
+    for (const imageId of imageIds) {
+        const result = stmt.run(albumId, imageId, albumId);
+        added += result.changes;
+    }
+
+    // Update album's updated_at timestamp
+    db.prepare(`UPDATE albums SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(albumId);
+
+    return { added };
+}
+
+/**
+ * Remove photos from an album
+ */
+export function removePhotosFromAlbum(albumId: number, imageIds: number[]): { removed: number } {
+    const db = getDatabase();
+
+    const placeholders = imageIds.map(() => '?').join(',');
+    const result = db.prepare(`
+        DELETE FROM album_items 
+        WHERE album_id = ? AND image_id IN (${placeholders})
+    `).run(albumId, ...imageIds);
+
+    db.prepare(`UPDATE albums SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(albumId);
+
+    return { removed: result.changes };
+}
+
+/**
+ * Update album details
+ */
+export function updateAlbum(albumId: number, updates: { name?: string; description?: string; cover_image_id?: number | null }): void {
+    const db = getDatabase();
+
+    const setClauses: string[] = ['updated_at = CURRENT_TIMESTAMP'];
+    const values: (string | number | null)[] = [];
+
+    if (updates.name !== undefined) {
+        setClauses.push('name = ?');
+        values.push(updates.name);
+    }
+    if (updates.description !== undefined) {
+        setClauses.push('description = ?');
+        values.push(updates.description);
+    }
+    if (updates.cover_image_id !== undefined) {
+        setClauses.push('cover_image_id = ?');
+        values.push(updates.cover_image_id);
+    }
+
+    values.push(albumId);
+    db.prepare(`UPDATE albums SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+}
+
+/**
+ * Delete an album (photos are not deleted, just the album membership)
+ */
+export function deleteAlbum(albumId: number): void {
+    const db = getDatabase();
+    db.prepare('DELETE FROM albums WHERE id = ?').run(albumId);
+}
+
