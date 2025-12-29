@@ -15,7 +15,7 @@ declare global {
 
             // Library operations
             importFolder: (path: string) => Promise<ImportResult>;
-            getLibraryImages: () => Promise<LibraryImage[]>;
+            getLibraryImages: (options?: { limit?: number; offset?: number }) => Promise<LibraryImage[]>;
             getDuplicates: () => Promise<DuplicateGroup[]>;
             getStats: () => Promise<LibraryStats>;
             deleteImages: (imageIds: number[], deleteFromDisk?: boolean) => Promise<{
@@ -28,7 +28,7 @@ declare global {
 
             // Tags and search
             getTags: () => Promise<TagInfo[]>;
-            getImagesByTag: (tag: string) => Promise<LibraryImage[]>;
+            getImagesByTag: (tag: string, options?: { limit?: number; offset?: number }) => Promise<LibraryImage[]>;
             getImageTagsByPath: (filePath: string) => Promise<{ tag: string; score: number; category: string | null }[]>;
             getImageByPath: (filePath: string) => Promise<ImageRecord | null>;
             search: (query: string) => Promise<SearchResult[]>;

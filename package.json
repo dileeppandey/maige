@@ -70,6 +70,7 @@
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-virtuoso": "^4.18.1",
     "sharp": "^0.34.5",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"

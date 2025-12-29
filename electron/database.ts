@@ -362,11 +362,11 @@ export function upsertImage(image: Partial<ImageRecord> & { file_path: string; f
 }
 
 /**
- * Get all images
+ * Get all images with pagination
  */
-export function getAllImages(): ImageRecord[] {
+export function getAllImages(limit: number = 100, offset: number = 0): ImageRecord[] {
     const db = getDatabase();
-    return db.prepare('SELECT * FROM images ORDER BY date_imported DESC').all() as ImageRecord[];
+    return db.prepare('SELECT * FROM images ORDER BY date_imported DESC LIMIT ? OFFSET ?').all(limit, offset) as ImageRecord[];
 }
 
 /**
@@ -601,9 +601,23 @@ export function getAllTags(): { tag: string; count: number; category: string | n
 }
 
 /**
- * Get images by tag
+ * Get count of images for a specific tag
  */
-export function getImagesByTag(tagName: string): ImageRecord[] {
+export function getImagesByTagCount(tagName: string): number {
+    const db = getDatabase();
+    const result = db.prepare(`
+        SELECT COUNT(*) as count FROM images i
+        JOIN image_tags it ON it.image_id = i.id
+        JOIN tags t ON t.id = it.tag_id
+        WHERE t.name = ?
+    `).get(tagName) as { count: number };
+    return result.count;
+}
+
+/**
+ * Get images by tag with pagination
+ */
+export function getImagesByTag(tagName: string, limit: number = 100, offset: number = 0): ImageRecord[] {
     const db = getDatabase();
 
     return db.prepare(`
@@ -612,7 +626,8 @@ export function getImagesByTag(tagName: string): ImageRecord[] {
         JOIN tags t ON t.id = it.tag_id
         WHERE t.name = ?
         ORDER BY it.score DESC
-    `).all(tagName) as ImageRecord[];
+        LIMIT ? OFFSET ?
+    `).all(tagName, limit, offset) as ImageRecord[];
 }
 
 /**

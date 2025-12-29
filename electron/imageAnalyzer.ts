@@ -3,6 +3,9 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import exifReader from 'exif-reader';
+import { Worker } from 'worker_threads';
+import os from 'os';
+import { fileURLToPath } from 'url';
 
 // Image extensions we support
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|cr2|arw|dng|nef|orf|rw2)$/i;
@@ -279,7 +282,7 @@ export async function scanDirectoryRecursive(dirPath: string): Promise<string[]>
 }
 
 /**
- * Analyze multiple images with progress reporting
+ * Analyze multiple images with worker threads for parallelization
  */
 export async function analyzeImages(
     imagePaths: string[],
@@ -288,30 +291,79 @@ export async function analyzeImages(
     const results: AnalyzedImage[] = [];
     const total = imagePaths.length;
 
-    // Process in batches to avoid overwhelming the system
-    const BATCH_SIZE = 10;
+    if (total === 0) return [];
 
-    for (let i = 0; i < imagePaths.length; i += BATCH_SIZE) {
-        const batch = imagePaths.slice(i, i + BATCH_SIZE);
+    // Use available CPU cores, but cap it to avoid overwhelming disk I/O
+    const numWorkers = Math.min(os.cpus().length, 8);
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const workerPath = path.join(__dirname, 'analysis.worker.js');
 
-        const batchResults = await Promise.all(
-            batch.map(async (imagePath, idx) => {
-                try {
-                    const result = await analyzeImage(imagePath);
-                    onProgress?.(i + idx + 1, total, imagePath);
-                    return result;
-                } catch (error) {
-                    console.error('Failed to analyze image:', imagePath, error);
-                    onProgress?.(i + idx + 1, total, imagePath);
-                    return null;
+    console.log(`Starting analysis with ${numWorkers} workers...`);
+
+    return new Promise((resolve) => {
+        let currentIndex = 0;
+        let completedCount = 0;
+
+        const spawnWorker = () => {
+            if (currentIndex >= imagePaths.length) {
+                if (completedCount === total) {
+                    resolve(results);
                 }
-            })
-        );
+                return;
+            }
 
-        results.push(...batchResults.filter((r): r is AnalyzedImage => r !== null));
-    }
+            const filePath = imagePaths[currentIndex++];
+            const fileName = path.basename(filePath);
+            const worker = new Worker(workerPath, {
+                workerData: { filePath }
+            });
 
-    return results;
+            worker.on('message', async (message) => {
+                if (message.success) {
+                    try {
+                        const stats = await fs.stat(filePath);
+                        results.push({
+                            filePath: message.filePath,
+                            fileName: fileName,
+                            fileSize: stats.size,
+                            fileHash: message.fileHash,
+                            metadata: message.metadata,
+                            phash: message.phash
+                        });
+                    } catch (e) {
+                        console.error('Failed to get stats for:', filePath, e);
+                    }
+                } else {
+                    console.error(`Worker failed for ${filePath}:`, message.error);
+                }
+
+                completedCount++;
+                onProgress?.(completedCount, total, filePath);
+
+                if (completedCount === total) {
+                    resolve(results);
+                } else {
+                    spawnWorker();
+                }
+
+                worker.terminate();
+            });
+
+            worker.on('error', (err) => {
+                console.error('Worker error:', err);
+                completedCount++;
+                onProgress?.(completedCount, total, filePath);
+                if (completedCount === total) resolve(results);
+                else spawnWorker();
+                worker.terminate();
+            });
+        };
+
+        // Start initial batch of workers
+        for (let i = 0; i < Math.min(numWorkers, total); i++) {
+            spawnWorker();
+        }
+    });
 }
 
 /**

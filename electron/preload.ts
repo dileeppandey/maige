@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Library operations
     importFolder: (path: string) => ipcRenderer.invoke('library:importFolder', path),
-    getLibraryImages: () => ipcRenderer.invoke('library:getImages'),
+    getLibraryImages: (options?: { limit?: number; offset?: number }) => ipcRenderer.invoke('library:getImages', options),
     getDuplicates: () => ipcRenderer.invoke('library:getDuplicates'),
     getStats: () => ipcRenderer.invoke('library:getStats'),
     deleteImages: (imageIds: number[], deleteFromDisk?: boolean) =>
@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Tags and search
     getTags: () => ipcRenderer.invoke('library:getTags'),
-    getImagesByTag: (tag: string) => ipcRenderer.invoke('library:getImagesByTag', tag),
+    getImagesByTag: (tag: string, options?: { limit?: number; offset?: number }) => ipcRenderer.invoke('library:getImagesByTag', tag, options),
     getImageTagsByPath: (filePath: string) => ipcRenderer.invoke('library:getImageTagsByPath', filePath),
     getImageByPath: (filePath: string) => ipcRenderer.invoke('library:getImageByPath', filePath),
     search: (query: string) => ipcRenderer.invoke('library:search', query),

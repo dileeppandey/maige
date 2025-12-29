@@ -29,8 +29,12 @@ interface LibraryState {
     isImporting: boolean;
     importProgress: ImportProgress | null;
 
+    // Pagination state
+    pageSize: number;
+    hasMore: boolean;
+
     // Actions
-    loadImages: () => Promise<void>;
+    loadImages: (loadMore?: boolean) => Promise<void>;
     loadDuplicates: () => Promise<void>;
     loadStats: () => Promise<void>;
     loadTags: () => Promise<void>;
@@ -39,11 +43,12 @@ interface LibraryState {
     setImportProgress: (progress: ImportProgress | null) => void;
     search: (query: string) => Promise<void>;
     clearSearch: () => void;
-    filterByTag: (tagName: string) => Promise<void>;
-    showAllPhotos: () => Promise<void>;
+    filterByTag: (tagName: string, loadMore?: boolean) => Promise<void>;
+    showAllPhotos: (loadMore?: boolean) => Promise<void>;
     showPeople: () => void;
     showDuplicates: () => Promise<void>;
     showAlbum: (albumId: number) => void;
+    loadMore: () => Promise<void>;
 
     // Selection actions
     toggleImageSelection: (imageId: number) => void;
@@ -84,12 +89,22 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     isSearching: false,
     isImporting: false,
     importProgress: null,
+    pageSize: 100,
+    hasMore: true,
 
-    // Load all images from database
-    loadImages: async () => {
+    // Load images from database with pagination
+    loadImages: async (loadMore = false) => {
         try {
-            const images = await window.electronAPI.getLibraryImages();
-            set({ images });
+            const { images, pageSize, hasMore: currentHasMore } = get();
+            if (loadMore && !currentHasMore) return;
+
+            const offset = loadMore ? images.length : 0;
+            const newImages = await window.electronAPI.getLibraryImages({ limit: pageSize, offset });
+
+            set((state) => ({
+                images: loadMore ? [...state.images, ...newImages] : newImages,
+                hasMore: newImages.length === pageSize
+            }));
         } catch (error) {
             console.error('Failed to load images:', error);
         }
@@ -176,43 +191,74 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         set({ searchQuery: '', searchResults: [], isSearching: false });
     },
 
-    // Filter by exact tag match (uses getImagesByTag instead of semantic search)
-    filterByTag: async (tagName: string) => {
+    // Filter by exact tag match with pagination
+    filterByTag: async (tagName: string, loadMore = false) => {
+        const { searchResults, pageSize, hasMore: currentHasMore } = get();
+        if (loadMore && !currentHasMore) return;
+
         set({ searchQuery: tagName, isSearching: true });
 
         try {
-            const images = await window.electronAPI.getImagesByTag(tagName);
+            const offset = loadMore ? searchResults.length : 0;
+            const images = await window.electronAPI.getImagesByTag(tagName, { limit: pageSize, offset });
+
             // Convert LibraryImage[] to SearchResult[] format
-            const results = images.map(img => ({
+            const newResults = images.map(img => ({
                 id: img.id,
                 file_path: img.file_path,
                 similarity: 1.0, // Exact match
             }));
-            set({ searchResults: results, isSearching: false, viewMode: 'tag' });
+
+            set((state) => ({
+                searchResults: loadMore ? [...state.searchResults, ...newResults] : newResults,
+                isSearching: false,
+                viewMode: 'tag',
+                hasMore: newResults.length === pageSize
+            }));
         } catch (error) {
             console.error('Filter by tag failed:', error);
-            set({ searchResults: [], isSearching: false });
+            set({ isSearching: false });
         }
     },
 
-    // Show all library photos
-    showAllPhotos: async () => {
+    // Show all library photos with pagination
+    showAllPhotos: async (loadMore = false) => {
         try {
-            const images = await window.electronAPI.getLibraryImages();
-            const results = images.map(img => ({
+            const { searchResults, pageSize, hasMore: currentHasMore } = get();
+            if (loadMore && !currentHasMore) return;
+
+            const offset = loadMore ? searchResults.length : 0;
+            const images = await window.electronAPI.getLibraryImages({ limit: pageSize, offset });
+
+            const newResults = images.map(img => ({
                 id: img.id,
                 file_path: img.file_path,
                 similarity: 1.0,
             }));
-            set({
+
+            set((state) => ({
                 searchQuery: '',
-                searchResults: results,
+                searchResults: loadMore ? [...state.searchResults, ...newResults] : newResults,
                 isSearching: false,
-                viewMode: 'library'
-            });
+                viewMode: 'library',
+                hasMore: newResults.length === pageSize
+            }));
         } catch (error) {
             console.error('Failed to load all photos:', error);
         }
+    },
+
+    // Load more unified action
+    loadMore: async () => {
+        const { viewMode, searchQuery } = get();
+        if (viewMode === 'library') {
+            await get().showAllPhotos(true);
+        } else if (viewMode === 'tag' && searchQuery) {
+            await get().filterByTag(searchQuery, true);
+        } else if (viewMode === 'folder') {
+            await get().loadImages(true);
+        }
+        // Others (search, album, people) don't have pagination implemented yet or are smaller
     },
 
     // Show people panel

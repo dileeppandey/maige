@@ -158,7 +158,7 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
 
         const duplicateGroupsCount = createDuplicateGroups();
 
-        // Step 5: AI Tagging (run in background-ish manner, image by image)
+        // Step 5: AI Tagging (run via worker thread for main-thread offloading)
         mainWindow?.webContents.send('library:importProgress', {
             phase: 'ai_tagging',
             current: 0,
@@ -166,8 +166,8 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
             file: '',
         });
 
-        // Import CLIP and database functions lazily
-        const { analyzeImageWithCLIP } = await import('./clipService.js');
+        // Import CLIP worker pool and database functions
+        const { analyzeImageWithCLIPWorker } = await import('./clipWorkerPool.js');
         const { addImageTags, updateImageEmbedding, getImageByPath } = await import('./database.js');
 
         for (let i = 0; i < analyzed.length; i++) {
@@ -178,16 +178,16 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
                 const imageRecord = getImageByPath(img.filePath);
                 if (!imageRecord) continue;
 
-                // Run CLIP analysis
-                const clipResult = await analyzeImageWithCLIP(img.filePath);
+                // Run CLIP analysis via worker thread
+                const clipResult = await analyzeImageWithCLIPWorker(imageRecord.id, img.filePath);
 
                 // Save tags
-                if (clipResult.tags.length > 0) {
+                if (clipResult.success && clipResult.tags.length > 0) {
                     addImageTags(imageRecord.id, clipResult.tags);
                 }
 
                 // Save embedding
-                if (clipResult.embedding) {
+                if (clipResult.success && clipResult.embedding) {
                     updateImageEmbedding(imageRecord.id, clipResult.embedding);
                 }
 
@@ -248,11 +248,13 @@ ipcMain.handle('library:importFolder', async (_, folderPath: string) => {
 });
 
 /**
- * Get all images in the library
+ * Get all images in the library with pagination
  */
-ipcMain.handle('library:getImages', async () => {
+ipcMain.handle('library:getImages', async (_, options?: { limit?: number; offset?: number }) => {
     try {
-        return getAllImages();
+        const limit = options?.limit ?? 100;
+        const offset = options?.offset ?? 0;
+        return getAllImages(limit, offset);
     } catch (error) {
         console.error('Failed to get images:', error);
         return [];
@@ -297,12 +299,14 @@ ipcMain.handle('library:getTags', async () => {
 });
 
 /**
- * Get images by tag
+ * Get images by tag with pagination
  */
-ipcMain.handle('library:getImagesByTag', async (_, tagName: string) => {
+ipcMain.handle('library:getImagesByTag', async (_, tagName: string, options?: { limit?: number; offset?: number }) => {
     try {
         const { getImagesByTag } = await import('./database.js');
-        return getImagesByTag(tagName);
+        const limit = options?.limit ?? 100;
+        const offset = options?.offset ?? 0;
+        return getImagesByTag(tagName, limit, offset);
     } catch (error) {
         console.error('Failed to get images by tag:', error);
         return [];
