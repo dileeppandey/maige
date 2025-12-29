@@ -24,6 +24,7 @@
     ],
     "mac": {
       "category": "public.app-category.photography",
+      "icon": "public/icon.png",
       "target": [
         "dmg",
         "zip"
