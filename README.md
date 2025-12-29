@@ -1,6 +1,6 @@
-# Electron Image Editor
+# Maige
 
-A desktop image editor built with Electron, Vite, React, and TypeScript. Supports viewing and converting RAW image formats.
+A professional desktop image editor built with Electron, Vite, React, and TypeScript. Supports viewing and converting RAW image formats.
 
 ## Features
 

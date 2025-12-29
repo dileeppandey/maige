@@ -140,7 +140,7 @@ interface ImageAnalysis {
 ### Recommended: SQLite Database + Optional Sidecars
 
 ```
-~/Library/Application Support/image-editor/
+~/Library/Application Support/maige/
 ├── library.db              # All metadata, embeddings, collections
 ├── models/                 # Downloaded ML models (on first run)
 │   ├── clip-vit-base/
@@ -499,7 +499,7 @@ async function semanticSearch(query: string, limit = 20) {
 | Option | Pros | Cons |
 |--------|------|------|
 | **Global Library** (`~/Library/Application Support/`) | Single source of truth, fast search across all photos, easy backup | Can't have multiple workspaces, tied to one machine |
-| **Per-Project** (`.image-editor/` in folder) | Portable, metadata travels with images, multiple workspaces | Scattered data, can't search across projects, duplicated embeddings |
+| **Per-Project** (`.maige/` in folder) | Portable, metadata travels with images, multiple workspaces | Scattered data, can't search across projects, duplicated embeddings |
 | **Hybrid** | Best of both | More complexity |
 
 **Recommendation:** **Global Library** with optional "Export metadata" feature for portability.

@@ -26,6 +26,9 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Explicitly set app name for branding
+app.name = 'Maige';
+
 // Track main window for sending progress updates
 let mainWindow: BrowserWindow | null = null;
 
