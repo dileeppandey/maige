@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clusterFaces: () => ipcRenderer.invoke('faces:cluster'),
     getFaceStats: () => ipcRenderer.invoke('faces:getStats'),
     getFaceThumbnail: (faceId: number) => ipcRenderer.invoke('faces:getThumbnail', faceId),
+    getFaceInfo: (faceId: number) => ipcRenderer.invoke('faces:getInfo', faceId),
 
     // People operations (Phase 3)
     getAllPeople: () => ipcRenderer.invoke('people:getAll'),
@@ -50,6 +51,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.invoke('people:updateName', personId, name),
     setPersonHidden: (personId: number, hidden: boolean) =>
         ipcRenderer.invoke('people:setHidden', personId, hidden),
+    getHiddenPeople: () => ipcRenderer.invoke('people:getHidden'),
 
     // Album operations
     createAlbum: (name: string, description?: string) =>

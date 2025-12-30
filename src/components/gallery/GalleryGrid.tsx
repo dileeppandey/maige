@@ -20,7 +20,8 @@ export function GalleryGrid({ files, onSelectFile }: GalleryGridProps) {
         addingToAlbumId,
         loadMore,
         hasMore,
-        isSearching
+        isSearching,
+        viewMode
     } = useLibraryStore()
 
     const { setCenterPanelMode } = useUIStore()
@@ -107,15 +108,16 @@ export function GalleryGrid({ files, onSelectFile }: GalleryGridProps) {
         )
     }, [files, getImageId, selectedImageIds, addingToAlbumId, albumExistingImageIds, handleClick])
 
-    // Footer with loading indicator
+    // Footer with loading indicator - only show for paginated views
     const Footer = useMemo(() => {
-        if (!hasMore) return null
+        // Don't show loader for views without pagination
+        if (!hasMore || viewMode === 'cluster' || viewMode === 'people' || viewMode === 'album' || viewMode === 'duplicates') return null
         return (
             <div className="col-span-full flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
             </div>
         )
-    }, [hasMore])
+    }, [hasMore, viewMode])
 
     if (files.length === 0) {
         return (

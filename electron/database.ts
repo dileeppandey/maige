@@ -743,6 +743,22 @@ export function getFacesForImage(imageId: number): (FaceRecord & { person_name?:
 }
 
 /**
+ * Get face info including image path
+ */
+export function getFaceInfo(faceId: number): { id: number; image_id: number; image_path: string; person_id: number | null } | null {
+    const db = getDatabase();
+
+    const row = db.prepare(`
+        SELECT f.id, f.image_id, f.person_id, i.file_path as image_path
+        FROM faces f
+        JOIN images i ON f.image_id = i.id
+        WHERE f.id = ?
+    `).get(faceId) as { id: number; image_id: number; image_path: string; person_id: number | null } | undefined;
+
+    return row || null;
+}
+
+/**
  * Get face embedding as array
  */
 export function getFaceEmbedding(faceId: number): number[] | null {
@@ -931,6 +947,22 @@ export function setRepresentativeFace(personId: number, faceId: number): void {
 export function setPersonHidden(personId: number, hidden: boolean): void {
     const db = getDatabase();
     db.prepare('UPDATE people SET is_hidden = ? WHERE id = ?').run(hidden ? 1 : 0, personId);
+}
+
+/**
+ * Get all hidden people with face counts
+ */
+export function getHiddenPeople(): (PersonRecord & { face_count: number })[] {
+    const db = getDatabase();
+
+    return db.prepare(`
+        SELECT p.*, COUNT(DISTINCT f.image_id) as face_count
+        FROM people p
+        LEFT JOIN faces f ON f.person_id = p.id
+        WHERE p.is_hidden = TRUE
+        GROUP BY p.id
+        ORDER BY p.name ASC
+    `).all() as (PersonRecord & { face_count: number })[];
 }
 
 /**

@@ -4,9 +4,10 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Users, UserPlus, Loader2, RefreshCw, EyeOff, CheckSquare, X } from 'lucide-react';
+import { Users, UserPlus, Loader2, RefreshCw, EyeOff, Eye, CheckSquare, X, Sparkles, ChevronRight } from 'lucide-react';
 import type { PersonRecord, FaceRecord, FaceCluster, FaceStats } from '../../../shared/types';
 import { FaceThumbnail } from '../FaceThumbnail';
+import { useLibraryStore } from '../../store/useLibraryStore';
 
 interface PeoplePanelProps {
     onSelectPerson?: (personId: number) => void;
@@ -14,14 +15,23 @@ interface PeoplePanelProps {
 }
 
 export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelProps) {
+    const { showCluster } = useLibraryStore();
     const [people, setPeople] = useState<PersonRecord[]>([]);
     const [unidentifiedFaces, setUnidentifiedFaces] = useState<FaceRecord[]>([]);
     const [clusters, setClusters] = useState<FaceCluster[]>([]);
     const [stats, setStats] = useState<FaceStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isClustering, setIsClustering] = useState(false);
+    const [clusterProgress, _setClusterProgress] = useState<{ current: number; total: number } | null>(null);
     const [namingFaceId, setNamingFaceId] = useState<number | null>(null);
     const [newPersonName, setNewPersonName] = useState('');
+
+    // Cluster pagination
+    const [visibleClusterCount, setVisibleClusterCount] = useState(10);
+
+    // Hidden people state
+    const [showHidden, setShowHidden] = useState(false);
+    const [hiddenPeople, setHiddenPeople] = useState<PersonRecord[]>([]);
 
     // Multi-select state
     const [selectionMode, setSelectionMode] = useState(false);
@@ -40,12 +50,18 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             setPeople(peopleData);
             setUnidentifiedFaces(facesData);
             setStats(statsData);
+
+            // Load hidden people if toggle is on
+            if (showHidden) {
+                const hiddenData = await window.electronAPI.getHiddenPeople();
+                setHiddenPeople(hiddenData);
+            }
         } catch (error) {
             console.error('Failed to load people data:', error);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [showHidden]);
 
     useEffect(() => {
         loadData();
@@ -215,13 +231,22 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                         <Users className="w-4 h-4 text-purple-400" />
                         <span className="font-semibold text-sm uppercase tracking-wide">People</span>
                     </div>
-                    <button
-                        onClick={loadData}
-                        className="p-1 hover:bg-gray-700 rounded"
-                        title="Refresh"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setShowHidden(!showHidden)}
+                            className={`p-1 rounded ${showHidden ? 'bg-gray-700 text-purple-400' : 'hover:bg-gray-700 text-gray-400 hover:text-white'}`}
+                            title={showHidden ? 'Hide hidden people' : 'Show hidden people'}
+                        >
+                            {showHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                        <button
+                            onClick={loadData}
+                            className="p-1 hover:bg-gray-700 rounded"
+                            title="Refresh"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats */}
@@ -280,6 +305,43 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                     </div>
                 )}
 
+                {/* Hidden People */}
+                {showHidden && hiddenPeople.length > 0 && (
+                    <div className="p-3 border-b border-gray-700 bg-gray-800/30">
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                            <EyeOff className="w-3 h-3" />
+                            Hidden People ({hiddenPeople.length})
+                        </h3>
+                        <div className="space-y-1">
+                            {hiddenPeople.map((person) => (
+                                <div
+                                    key={person.id}
+                                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 opacity-60 group"
+                                >
+                                    {/* Avatar placeholder */}
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm font-medium text-gray-400">
+                                        {person.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="truncate text-sm text-gray-400">{person.name}</div>
+                                        <div className="text-xs text-gray-500">
+                                            {person.face_count} photos
+                                        </div>
+                                    </div>
+                                    {/* Unhide button */}
+                                    <button
+                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded text-green-400 hover:text-green-300"
+                                        onClick={() => handleHidePerson(person.id, false)}
+                                        title="Unhide person"
+                                    >
+                                        <Eye className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Unknown Faces */}
                 {unidentifiedFaces.length > 0 && (
                     <div className="p-3">
@@ -287,25 +349,20 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                             <h3 className="text-xs font-semibold text-gray-400 uppercase">
                                 Unknown Faces ({unidentifiedFaces.length})
                             </h3>
-                            <button
-                                onClick={handleCluster}
-                                disabled={isClustering}
-                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                            >
-                                {isClustering ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                    <RefreshCw className="w-3 h-3" />
-                                )}
-                                Group similar
-                            </button>
-                        </div>
-
-                        {/* Display clusters or individual faces */}
-                        {clusters.length > 0 ? (
-                            <div className="space-y-3">
-                                {/* Selection mode toggle */}
-                                <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleCluster}
+                                    disabled={isClustering}
+                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                >
+                                    {isClustering ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                        <Sparkles className="w-3 h-3" />
+                                    )}
+                                    Group similar
+                                </button>
+                                {clusters.length > 0 && (
                                     <button
                                         onClick={() => {
                                             setSelectionMode(!selectionMode);
@@ -319,15 +376,50 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                         <CheckSquare className="w-3 h-3" />
                                         {selectionMode ? 'Cancel' : 'Select'}
                                     </button>
-                                </div>
+                                )}
+                            </div>
+                        </div>
 
-                                {clusters.map((cluster, idx) => (
-                                    <div key={idx} className="bg-gray-700/50 rounded p-2">
+                        {/* Display clusters or individual faces */}
+                        {clusters.length > 0 ? (
+                            <div className="space-y-3">
+                                {/* Clustering progress */}
+                                {isClustering && clusterProgress && (
+                                    <div className="bg-gray-700/50 rounded p-2">
                                         <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-                                            <span>Cluster {idx + 1} ({cluster.faceIds.length} faces)</span>
+                                            <span>Clustering faces...</span>
+                                            <span>{clusterProgress.current}/{clusterProgress.total}</span>
+                                        </div>
+                                        <div className="h-1 bg-gray-600 rounded overflow-hidden">
+                                            <div
+                                                className="h-full bg-blue-500 transition-all"
+                                                style={{ width: `${(clusterProgress.current / clusterProgress.total) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {clusters.slice(0, visibleClusterCount).map((cluster, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="bg-gray-700/50 rounded p-2 hover:bg-gray-700/70 cursor-pointer transition-colors"
+                                        onClick={() => {
+                                            if (!selectionMode) {
+                                                showCluster(cluster);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                                            <span className="flex items-center gap-1">
+                                                Cluster {idx + 1} ({cluster.faceIds.length} faces)
+                                                <ChevronRight className="w-3 h-3" />
+                                            </span>
                                             {selectionMode && (
                                                 <button
-                                                    onClick={() => selectAllInCluster(cluster.faceIds)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        selectAllInCluster(cluster.faceIds);
+                                                    }}
                                                     className="text-blue-400 hover:text-blue-300"
                                                 >
                                                     Select all
@@ -335,7 +427,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                             )}
                                         </div>
                                         <div className="flex flex-wrap gap-1">
-                                            {cluster.faceIds.slice(0, 12).map((faceId) => (
+                                            {cluster.faceIds.slice(0, 6).map((faceId) => (
                                                 <FaceThumbnail
                                                     key={faceId}
                                                     faceId={faceId}
@@ -348,15 +440,15 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                     }}
                                                 />
                                             ))}
-                                            {cluster.faceIds.length > 12 && (
+                                            {cluster.faceIds.length > 6 && (
                                                 <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs">
-                                                    +{cluster.faceIds.length - 12}
+                                                    +{cluster.faceIds.length - 6}
                                                 </div>
                                             )}
                                         </div>
                                         {/* Name this cluster */}
                                         {namingFaceId && cluster.faceIds.includes(namingFaceId) && (
-                                            <div className="mt-2 relative">
+                                            <div className="mt-2 relative" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex gap-1">
                                                     <input
                                                         type="text"
@@ -409,6 +501,16 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                         )}
                                     </div>
                                 ))}
+
+                                {/* Load more clusters button */}
+                                {clusters.length > visibleClusterCount && (
+                                    <button
+                                        onClick={() => setVisibleClusterCount(prev => prev + 10)}
+                                        className="w-full py-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-700/50 rounded"
+                                    >
+                                        Show more clusters ({clusters.length - visibleClusterCount} remaining)
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="grid grid-cols-4 gap-2">

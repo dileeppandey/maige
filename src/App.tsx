@@ -49,7 +49,7 @@ function App() {
   }, [loadPresetsFromDisk])
 
   // Get search state from library store
-  const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats } = useLibraryStore()
+  const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
 
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
@@ -58,6 +58,7 @@ function App() {
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
   const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
   const [albumFiles, setAlbumFiles] = React.useState<FileInfo[]>([])
+  const [clusterFiles, setClusterFiles] = React.useState<FileInfo[]>([])
   const [histogramData, setHistogramData] = React.useState<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>(null)
 
   // Handle person selection - load their photos
@@ -106,11 +107,60 @@ function App() {
     loadAlbumFiles()
   }, [viewMode, selectedAlbumId])
 
-  // Compute display files: person files, album files, search/library results, or folder files
+  // Load cluster face images when a cluster is selected
+  useEffect(() => {
+    const loadClusterFaces = async () => {
+      if (viewMode === 'cluster' && selectedCluster) {
+        try {
+          // Get image paths for each face in the cluster
+          const faceImages = await Promise.all(
+            selectedCluster.faceIds.map(async (faceId) => {
+              const faceInfo = await window.electronAPI.getFaceInfo(faceId)
+              return faceInfo
+            })
+          )
+
+          // Define the face info type
+          type FaceInfo = NonNullable<Awaited<ReturnType<typeof window.electronAPI.getFaceInfo>>>
+
+          // Convert to FileInfo, filtering out nulls and deduping by path
+          const seenPaths = new Set<string>()
+          const fileInfos: FileInfo[] = (faceImages.filter((info): info is FaceInfo => info !== null) as FaceInfo[])
+            .filter(info => {
+              if (seenPaths.has(info.image_path)) return false
+              seenPaths.add(info.image_path)
+              return true
+            })
+            .map(info => ({
+              name: info.image_path.split('/').pop() || '',
+              path: info.image_path,
+              isDirectory: false,
+              type: 'image' as const,
+            }))
+
+          setClusterFiles(fileInfos)
+          if (fileInfos.length > 0) {
+            setSelectedFile(fileInfos[0])
+          }
+        } catch (error) {
+          console.error('Failed to load cluster images:', error)
+          setClusterFiles([])
+        }
+      }
+    }
+    loadClusterFaces()
+  }, [viewMode, selectedCluster])
+
+  // Compute display files: cluster, person files, album files, search/library results, or folder files
   const displayFiles = useMemo<FileInfo[]>(() => {
-    // If person is selected, show their photos
-    if (viewMode === 'people' && selectedPersonId && personFiles.length > 0) {
+    // If person is selected (named person), show their photos
+    // This works in both 'people' and 'cluster' modes since left panel shows PeoplePanel in both
+    if ((viewMode === 'people' || viewMode === 'cluster') && selectedPersonId && personFiles.length > 0) {
       return personFiles
+    }
+    // If cluster is selected (not a named person), show cluster face images
+    if (viewMode === 'cluster' && selectedCluster && clusterFiles.length > 0) {
+      return clusterFiles
     }
     // If album is selected, show album photos
     if (viewMode === 'album' && selectedAlbumId && albumFiles.length > 0) {
@@ -128,7 +178,7 @@ function App() {
       }))
     }
     return files
-  }, [viewMode, searchResults, files, selectedPersonId, personFiles, selectedAlbumId, albumFiles])
+  }, [viewMode, searchResults, files, selectedPersonId, personFiles, selectedAlbumId, albumFiles, selectedCluster, clusterFiles])
 
   // Sync selected file with edit store
   useEffect(() => {
@@ -317,7 +367,7 @@ function App() {
       {/* Top Main Area (Columns) */}
       <ResizableLayout
         leftPanel={
-          viewMode === 'people' ? (
+          viewMode === 'people' || viewMode === 'cluster' ? (
             <PeoplePanel
               onSelectPerson={handleSelectPerson}
               selectedPersonId={selectedPersonId}
@@ -348,7 +398,7 @@ function App() {
             onHistogramChange={setHistogramData}
             files={displayFiles}
             onSelectFile={setSelectedFile}
-            totalPhotos={stats.totalImages}
+            totalPhotos={displayFiles.length > 0 ? displayFiles.length : stats.totalImages}
           />
         }
         rightPanel={

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, TagInfo, SearchResult, AlbumRecord } from '../../shared/types';
+import type { LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, TagInfo, SearchResult, AlbumRecord, FaceCluster } from '../../shared/types';
 
 interface LibraryState {
     // Data
@@ -12,9 +12,10 @@ interface LibraryState {
     // Selection state for bulk operations
     selectedImageIds: Set<number>;
 
-    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups, 'album' = album view
-    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates' | 'album';
+    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups, 'album' = album view, 'cluster' = cluster faces view
+    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates' | 'album' | 'cluster';
     selectedAlbumId: number | null;
+    selectedCluster: FaceCluster | null;
 
     // "Add Photos to Album" pick mode
     addingToAlbumId: number | null;
@@ -52,6 +53,8 @@ interface LibraryState {
     showDuplicates: () => Promise<void>;
     showAlbum: (albumId: number) => void;
     loadMore: () => Promise<void>;
+    showCluster: (cluster: FaceCluster) => void;
+    clearCluster: () => void;
 
     // Selection actions
     toggleImageSelection: (imageId: number) => void;
@@ -87,6 +90,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     selectedImageIds: new Set(),
     viewMode: 'folder',
     selectedAlbumId: null,
+    selectedCluster: null,
     addingToAlbumId: null,
     albumExistingImageIds: new Set(),
     searchQuery: '',
@@ -285,6 +289,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Show album view
     showAlbum: (albumId: number) => {
         set({ viewMode: 'album', selectedAlbumId: albumId, searchQuery: '', searchResults: [] });
+    },
+
+    // Show cluster faces in gallery
+    showCluster: (cluster: FaceCluster) => {
+        set({ viewMode: 'cluster', selectedCluster: cluster, searchQuery: '', searchResults: [] });
+    },
+
+    // Clear cluster view and return to people panel
+    clearCluster: () => {
+        set({ viewMode: 'people', selectedCluster: null });
     },
 
     // Load albums

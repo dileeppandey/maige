@@ -187,8 +187,8 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                     )
                 })}
 
-                {/* Loading indicator / Intersection element */}
-                {hasMore && (
+                {/* Loading indicator / Intersection element - only for paginated views */}
+                {hasMore && viewMode !== 'cluster' && viewMode !== 'people' && viewMode !== 'album' && viewMode !== 'duplicates' && (
                     <div ref={loadMoreRef} className="flex-shrink-0 w-20 h-full flex items-center justify-center">
                         {isLoadingMore && (
                             <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />

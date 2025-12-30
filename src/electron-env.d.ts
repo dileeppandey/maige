@@ -40,6 +40,7 @@ declare global {
             clusterFaces: () => Promise<FaceCluster[]>;
             getFaceStats: () => Promise<FaceStats>;
             getFaceThumbnail: (faceId: number) => Promise<string | null>;
+            getFaceInfo: (faceId: number) => Promise<{ id: number; image_id: number; image_path: string; person_id: number | null } | null>;
 
             // People operations (Phase 3)
             getAllPeople: () => Promise<PersonRecord[]>;
@@ -49,6 +50,7 @@ declare global {
             getImagesByPerson: (personId: number) => Promise<LibraryImage[]>;
             updatePersonName: (personId: number, name: string) => Promise<boolean>;
             setPersonHidden: (personId: number, hidden: boolean) => Promise<boolean>;
+            getHiddenPeople: () => Promise<PersonRecord[]>;
 
             // Album operations
             createAlbum: (name: string, description?: string) => Promise<AlbumRecord | null>;

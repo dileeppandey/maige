@@ -608,6 +608,32 @@ ipcMain.handle('people:setHidden', async (_, personId: number, hidden: boolean) 
 });
 
 /**
+ * Get hidden people
+ */
+ipcMain.handle('people:getHidden', async () => {
+    try {
+        const { getHiddenPeople } = await import('./database.js');
+        return getHiddenPeople();
+    } catch (error) {
+        console.error('Failed to get hidden people:', error);
+        return [];
+    }
+});
+
+/**
+ * Get face info (for cluster view)
+ */
+ipcMain.handle('faces:getInfo', async (_, faceId: number) => {
+    try {
+        const { getFaceInfo } = await import('./database.js');
+        return getFaceInfo(faceId);
+    } catch (error) {
+        console.error('Failed to get face info:', error);
+        return null;
+    }
+});
+
+/**
  * Get a cropped face thumbnail as base64 data URL
  */
 ipcMain.handle('faces:getThumbnail', async (_, faceId: number) => {
