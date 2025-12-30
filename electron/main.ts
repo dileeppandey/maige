@@ -807,6 +807,55 @@ ipcMain.handle('export:saveImage', async (_, options: {
 
         await sharpInstance.toFile(outputPath);
 
+        // Check if this is a new file (not in database) and auto-import it
+        try {
+            const { getImageByPath, upsertImage } = await import('./database.js');
+            const existingImage = getImageByPath(outputPath);
+
+            if (!existingImage) {
+                // New file - analyze and add to database
+                const { extractMetadata, generatePHash, calculateFileHash } = await import('./imageAnalyzer.js');
+
+                const metadata = await extractMetadata(outputPath);
+                const phash = await generatePHash(outputPath);
+                const fileHash = await calculateFileHash(outputPath);
+                const fileName = path.basename(outputPath);
+                const fileStat = await fs.stat(outputPath);
+
+                upsertImage({
+                    file_path: outputPath,
+                    file_name: fileName,
+                    file_hash: fileHash,
+                    file_size: fileStat.size,
+                    format: metadata.format || format,
+                    color_space: metadata.colorSpace || null,
+                    has_alpha: metadata.hasAlpha ? 1 : 0,
+                    width: metadata.width || 0,
+                    height: metadata.height || 0,
+                    camera_make: metadata.cameraMake || null,
+                    camera_model: metadata.cameraModel || null,
+                    focal_length: metadata.focalLength || null,
+                    aperture: metadata.aperture || null,
+                    iso: metadata.iso || null,
+                    shutter_speed: metadata.shutterSpeed || null,
+                    exposure_program: metadata.exposureProgram || null,
+                    metering_mode: metadata.meteringMode || null,
+                    flash: metadata.flash || null,
+                    white_balance: metadata.whiteBalance || null,
+                    date_taken: metadata.dateTaken || new Date().toISOString(),
+                    gps_lat: metadata.gpsLat || null,
+                    gps_lng: metadata.gpsLng || null,
+                    phash: phash || null,
+                    analyzed_at: new Date().toISOString(),
+                });
+
+                console.log('Auto-imported exported image:', outputPath);
+            }
+        } catch (importError) {
+            // Non-fatal: file was saved but auto-import failed
+            console.warn('Auto-import of exported image failed:', importError);
+        }
+
         return { success: true, path: outputPath };
     } catch (error) {
         console.error('Export failed:', error);
@@ -873,8 +922,14 @@ app.whenReady().then(() => {
 
     // Register protocol to view local files safely
     protocol.handle('media', async (request) => {
-        const filePath = request.url.slice('media://'.length);
-        const decodedPath = decodeURIComponent(filePath);
+        // Extract file path and strip query parameters for cache busting
+        let rawPath = request.url.slice('media://'.length);
+        // Remove query string (e.g., ?v=0)
+        const queryIndex = rawPath.indexOf('?');
+        if (queryIndex !== -1) {
+            rawPath = rawPath.slice(0, queryIndex);
+        }
+        const decodedPath = decodeURIComponent(rawPath);
 
         const ext = path.extname(decodedPath).toLowerCase();
         // Common RAW formats + others sharp can handle but browsers might not

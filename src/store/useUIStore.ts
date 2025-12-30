@@ -7,6 +7,7 @@ interface UIState {
     zoomLevel: number
     compareMode: boolean
     beforeAfter: boolean
+    centerPanelMode: 'grid' | 'editor'
 
     // Actions
     togglePanel: (panel: 'library' | 'develop' | 'filmstrip') => void
@@ -17,6 +18,7 @@ interface UIState {
     zoomActual: () => void
     toggleCompareMode: () => void
     toggleBeforeAfter: () => void
+    setCenterPanelMode: (mode: 'grid' | 'editor') => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -26,6 +28,7 @@ export const useUIStore = create<UIState>((set) => ({
     zoomLevel: 100,
     compareMode: false,
     beforeAfter: false,
+    centerPanelMode: 'grid',
 
     togglePanel: (panel) => set((state) => {
         switch (panel) {
@@ -49,4 +52,7 @@ export const useUIStore = create<UIState>((set) => ({
     toggleCompareMode: () => set((state) => ({ compareMode: !state.compareMode })),
 
     toggleBeforeAfter: () => set((state) => ({ beforeAfter: !state.beforeAfter })),
+
+    setCenterPanelMode: (mode) => set({ centerPanelMode: mode }),
 }))
+

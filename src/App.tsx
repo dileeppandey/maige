@@ -49,7 +49,7 @@ function App() {
   }, [loadPresetsFromDisk])
 
   // Get search state from library store
-  const { searchResults, viewMode, showAllPhotos, selectedAlbumId } = useLibraryStore()
+  const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats } = useLibraryStore()
 
   // Local state for file management
   const [currentPath, setCurrentPath] = React.useState<string | null>(null)
@@ -346,6 +346,9 @@ function App() {
             selectedFile={selectedFile}
             adjustments={currentAdjustments}
             onHistogramChange={setHistogramData}
+            files={displayFiles}
+            onSelectFile={setSelectedFile}
+            totalPhotos={stats.totalImages}
           />
         }
         rightPanel={

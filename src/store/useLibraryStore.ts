@@ -33,6 +33,9 @@ interface LibraryState {
     pageSize: number;
     hasMore: boolean;
 
+    // Cache busting for edited images
+    imageCacheVersion: number;
+
     // Actions
     loadImages: (loadMore?: boolean) => Promise<void>;
     loadDuplicates: () => Promise<void>;
@@ -66,10 +69,12 @@ interface LibraryState {
     addSelectedToAlbum: (albumId: number) => Promise<void>;
     deleteAlbum: (albumId: number) => Promise<void>;
 
-    // Add Photos to Album pick mode actions
     startAddingToAlbum: (albumId: number) => Promise<void>;
     confirmAddToAlbum: () => Promise<void>;
     cancelAddToAlbum: () => void;
+
+    // Cache invalidation
+    invalidateImageCache: () => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -91,6 +96,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     importProgress: null,
     pageSize: 100,
     hasMore: true,
+    imageCacheVersion: 0,
 
     // Load images from database with pagination
     loadImages: async (loadMore = false) => {
@@ -473,6 +479,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             selectedImageIds: new Set(),
             albumExistingImageIds: new Set(),
         });
+    },
+
+    // Increment cache version to force image reloads
+    invalidateImageCache: () => {
+        set((state) => ({ imageCacheVersion: state.imageCacheVersion + 1 }));
     },
 }));
 

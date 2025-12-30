@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Download } from 'lucide-react'
+import { useLibraryStore } from '../store/useLibraryStore'
 
 interface ExportModalProps {
     isOpen: boolean
@@ -19,6 +20,7 @@ export function ExportModal({
     const [isExporting, setIsExporting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
+    const { invalidateImageCache } = useLibraryStore()
 
     if (!isOpen) return null
 
@@ -67,6 +69,8 @@ export function ExportModal({
             })
 
             if (result.success) {
+                // Invalidate image cache so the updated image is shown
+                invalidateImageCache()
                 setSuccess(`Saved to: ${result.path}`)
                 setTimeout(() => {
                     onClose()
@@ -107,8 +111,8 @@ export function ExportModal({
                             <button
                                 onClick={() => setFormat('jpeg')}
                                 className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${format === 'jpeg'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
                                     }`}
                             >
                                 JPEG
@@ -116,8 +120,8 @@ export function ExportModal({
                             <button
                                 onClick={() => setFormat('png')}
                                 className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${format === 'png'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
                                     }`}
                             >
                                 PNG

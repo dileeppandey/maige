@@ -1,8 +1,7 @@
 import type { FileInfo } from '../../../shared/types'
 import { useLibraryStore } from '../../store/useLibraryStore'
 import { Check, Loader2 } from 'lucide-react'
-import { useCallback, useMemo } from 'react'
-import { VirtuosoGrid } from 'react-virtuoso'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface FilmstripProps {
     files: FileInfo[]
@@ -27,13 +26,14 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
         isSearching
     } = useLibraryStore()
 
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const loadMoreRef = useRef<HTMLDivElement>(null)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
+
     // Helper to get image ID from file path
     const getImageId = useCallback((filePath: string): number | null => {
-        // Try search results first (they have id)
         const searchResult = searchResults.find(r => r.file_path === filePath)
         if (searchResult) return searchResult.id
-
-        // Try images array
         const image = images.find(i => i.file_path === filePath)
         return image?.id ?? null
     }, [searchResults, images])
@@ -41,120 +41,40 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
     const handleClick = useCallback((file: FileInfo, event: React.MouseEvent) => {
         const imageId = getImageId(file.path)
 
-        // CMD/CTRL + Click for multi-select
         if ((event.metaKey || event.ctrlKey) && imageId !== null) {
             toggleImageSelection(imageId)
             return
         }
 
-        // Normal click - select file for preview
         onSelectFile(file)
     }, [getImageId, toggleImageSelection, onSelectFile])
+
+    // Debounced load more
+    useEffect(() => {
+        if (!hasMore || isSearching || isLoadingMore || files.length === 0) return
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && !isLoadingMore) {
+                    setIsLoadingMore(true)
+                    loadMore().finally(() => {
+                        setTimeout(() => setIsLoadingMore(false), 500) // Debounce
+                    })
+                }
+            },
+            { threshold: 0.1, root: scrollContainerRef.current }
+        )
+
+        if (loadMoreRef.current) {
+            observer.observe(loadMoreRef.current)
+        }
+
+        return () => observer.disconnect()
+    }, [hasMore, isSearching, loadMore, isLoadingMore, files.length])
 
     const currentAlbum = viewMode === 'album' && selectedAlbumId
         ? albums.find(a => a.id === selectedAlbumId)
         : null
-
-    // Memoized item content renderer
-    const ItemContent = useCallback((index: number) => {
-        const file = files[index]
-        if (!file) return null
-
-        const imageId = getImageId(file.path)
-        const isSelected = imageId !== null && selectedImageIds.has(imageId)
-        const isCurrentPreview = selectedFile?.path === file.path
-        const isInAlbum = imageId !== null && addingToAlbumId !== null && albumExistingImageIds.has(imageId)
-
-        return (
-            <div
-                draggable
-                onDragStart={(e) => {
-                    if (imageId === null) return;
-
-                    let idsToDrag: number[] = [];
-                    if (isSelected) {
-                        idsToDrag = Array.from(selectedImageIds);
-                    } else {
-                        idsToDrag = [imageId];
-                    }
-
-                    e.dataTransfer.setData('application/json', JSON.stringify({ imageIds: idsToDrag }));
-                    e.dataTransfer.effectAllowed = 'copy';
-
-                    const dragIcon = document.createElement('div');
-                    dragIcon.innerText = `${idsToDrag.length} Photos`;
-                    dragIcon.style.background = '#2563eb';
-                    dragIcon.style.color = 'white';
-                    dragIcon.style.padding = '4px 8px';
-                    dragIcon.style.borderRadius = '4px';
-                    dragIcon.style.position = 'absolute';
-                    dragIcon.style.top = '-1000px';
-                    document.body.appendChild(dragIcon);
-                    e.dataTransfer.setDragImage(dragIcon, 0, 0);
-                    setTimeout(() => document.body.removeChild(dragIcon), 0);
-                }}
-                onClick={(e) => handleClick(file, e)}
-                className={`
-                    h-full aspect-[4/3] flex-shrink-0 border-2 rounded overflow-hidden cursor-pointer relative group
-                    ${isInAlbum
-                        ? 'border-green-500/50 opacity-60'
-                        : isSelected
-                            ? 'border-blue-500 ring-2 ring-blue-500/50'
-                            : isCurrentPreview
-                                ? 'border-blue-500'
-                                : 'border-transparent hover:border-gray-600'
-                    }
-                `}
-            >
-                <img
-                    src={`media://${file.path}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                />
-
-                {/* "Already in album" indicator */}
-                {isInAlbum && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-green-600/90 text-white text-[8px] text-center py-0.5 font-medium">
-                        ✓ In Album
-                    </div>
-                )}
-
-                {/* Selection checkbox overlay */}
-                {isSelected && (
-                    <div className="absolute top-1 right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                        <Check className="w-3 h-3 text-white" />
-                    </div>
-                )}
-
-                {/* Similarity badge */}
-                {file.similarity !== undefined && (
-                    <div className="absolute top-1 left-1 bg-blue-600/80 text-white text-[8px] px-1 rounded font-bold">
-                        {Math.round(file.similarity * 100)}%
-                    </div>
-                )}
-
-                {/* Hover overlay */}
-                <div className={`absolute inset-0 transition-colors ${isSelected ? 'bg-blue-500/10' : 'bg-transparent group-hover:bg-white/5'}`}></div>
-            </div>
-        )
-    }, [files, getImageId, selectedImageIds, selectedFile, addingToAlbumId, albumExistingImageIds, handleClick])
-
-    // Footer component for the virtualized list
-    const Footer = useMemo(() => {
-        if (!hasMore) return null
-        return (
-            <div className="flex-shrink-0 w-20 h-full flex items-center justify-center">
-                <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
-            </div>
-        )
-    }, [hasMore])
-
-    // Handle reaching end of list
-    const handleEndReached = useCallback(() => {
-        if (hasMore && !isSearching) {
-            loadMore()
-        }
-    }, [hasMore, isSearching, loadMore])
 
     return (
         <div className="h-[120px] bg-[#252525] border-t border-[#333333] flex flex-col">
@@ -186,19 +106,95 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                     </span>
                 )}
             </div>
-            <div className="flex-1 overflow-hidden">
-                <VirtuosoGrid
-                    style={{ height: '100%' }}
-                    totalCount={files.length}
-                    overscan={20}
-                    itemContent={ItemContent}
-                    endReached={handleEndReached}
-                    listClassName="flex items-center gap-2 p-2 h-full"
-                    itemClassName="h-full"
-                    components={{
-                        Footer: () => Footer
-                    }}
-                />
+            <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-x-auto p-2 flex items-center gap-2"
+            >
+                {files.map((file) => {
+                    const imageId = getImageId(file.path)
+                    const isSelected = imageId !== null && selectedImageIds.has(imageId)
+                    const isCurrentPreview = selectedFile?.path === file.path
+                    const isInAlbum = imageId !== null && addingToAlbumId !== null && albumExistingImageIds.has(imageId)
+
+                    return (
+                        <div
+                            key={file.path}
+                            draggable
+                            onDragStart={(e) => {
+                                if (imageId === null) return;
+
+                                let idsToDrag: number[] = [];
+                                if (isSelected) {
+                                    idsToDrag = Array.from(selectedImageIds);
+                                } else {
+                                    idsToDrag = [imageId];
+                                }
+
+                                e.dataTransfer.setData('application/json', JSON.stringify({ imageIds: idsToDrag }));
+                                e.dataTransfer.effectAllowed = 'copy';
+
+                                const dragIcon = document.createElement('div');
+                                dragIcon.innerText = `${idsToDrag.length} Photos`;
+                                dragIcon.style.background = '#2563eb';
+                                dragIcon.style.color = 'white';
+                                dragIcon.style.padding = '4px 8px';
+                                dragIcon.style.borderRadius = '4px';
+                                dragIcon.style.position = 'absolute';
+                                dragIcon.style.top = '-1000px';
+                                document.body.appendChild(dragIcon);
+                                e.dataTransfer.setDragImage(dragIcon, 0, 0);
+                                setTimeout(() => document.body.removeChild(dragIcon), 0);
+                            }}
+                            onClick={(e) => handleClick(file, e)}
+                            className={`
+                                h-full aspect-[4/3] flex-shrink-0 border-2 rounded overflow-hidden cursor-pointer relative group
+                                ${isInAlbum
+                                    ? 'border-green-500/50 opacity-60'
+                                    : isSelected
+                                        ? 'border-blue-500 ring-2 ring-blue-500/50'
+                                        : isCurrentPreview
+                                            ? 'border-blue-500'
+                                            : 'border-transparent hover:border-gray-600'
+                                }
+                            `}
+                        >
+                            <img
+                                src={`media://${file.path}`}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                            />
+
+                            {isInAlbum && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-green-600/90 text-white text-[8px] text-center py-0.5 font-medium">
+                                    ✓ In Album
+                                </div>
+                            )}
+
+                            {isSelected && (
+                                <div className="absolute top-1 right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                                    <Check className="w-3 h-3 text-white" />
+                                </div>
+                            )}
+
+                            {file.similarity !== undefined && (
+                                <div className="absolute top-1 left-1 bg-blue-600/80 text-white text-[8px] px-1 rounded font-bold">
+                                    {Math.round(file.similarity * 100)}%
+                                </div>
+                            )}
+
+                            <div className={`absolute inset-0 transition-colors ${isSelected ? 'bg-blue-500/10' : 'bg-transparent group-hover:bg-white/5'}`}></div>
+                        </div>
+                    )
+                })}
+
+                {/* Loading indicator / Intersection element */}
+                {hasMore && (
+                    <div ref={loadMoreRef} className="flex-shrink-0 w-20 h-full flex items-center justify-center">
+                        {isLoadingMore && (
+                            <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     )
