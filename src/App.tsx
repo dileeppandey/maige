@@ -9,6 +9,7 @@ import { ImagePreview } from './components/layout/ImagePreview'
 import { ResizableLayout } from './components/layout/ResizableLayout'
 import { FloatingActionBar } from './components/FloatingActionBar'
 import { PickModeHeader } from './components/PickModeHeader'
+import { CreateAlbumModal } from './components/CreateAlbumModal'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useUIStore } from './store/useUIStore'
@@ -60,6 +61,7 @@ function App() {
   const [albumFiles, setAlbumFiles] = React.useState<FileInfo[]>([])
   const [clusterFiles, setClusterFiles] = React.useState<FileInfo[]>([])
   const [histogramData, setHistogramData] = React.useState<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>(null)
+  const [showCreateAlbumModal, setShowCreateAlbumModal] = React.useState(false)
 
   // Handle person selection - load their photos
   const handleSelectPerson = async (personId: number) => {
@@ -154,8 +156,8 @@ function App() {
   // Compute display files: cluster, person files, album files, search/library results, or folder files
   const displayFiles = useMemo<FileInfo[]>(() => {
     // If person is selected (named person), show their photos
-    // This works in both 'people' and 'cluster' modes since left panel shows PeoplePanel in both
-    if ((viewMode === 'people' || viewMode === 'cluster') && selectedPersonId && personFiles.length > 0) {
+    // This works from People Albums (library mode) or People panel (people/cluster modes)
+    if (selectedPersonId && personFiles.length > 0) {
       return personFiles
     }
     // If cluster is selected (not a named person), show cluster face images
@@ -321,7 +323,7 @@ function App() {
 
         // Library Features
         case 'newAlbum':
-          console.log('New Album requested')
+          setShowCreateAlbumModal(true)
           break
         case 'semanticSearch':
           // Focus search bar or trigger search logic
@@ -388,6 +390,11 @@ function App() {
               currentPath={currentPath}
               files={files}
               onOpenFolder={handleOpenFolder}
+              onSelectPerson={handleSelectPerson}
+              onClearPerson={() => {
+                setSelectedPersonId(null)
+                setPersonFiles([])
+              }}
             />
           ) : null
         }
@@ -431,6 +438,12 @@ function App() {
 
       {/* Floating Action Bar for bulk operations */}
       <FloatingActionBar />
+
+      {/* Create Album Modal */}
+      <CreateAlbumModal
+        isOpen={showCreateAlbumModal}
+        onClose={() => setShowCreateAlbumModal(false)}
+      />
 
     </div>
   )

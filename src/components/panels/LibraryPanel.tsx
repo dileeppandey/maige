@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import type { FileInfo, AlbumRecord } from '../../../shared/types'
+import type { FileInfo, AlbumRecord, PersonRecord } from '../../../shared/types'
 import { FolderOpen, Images, Copy, Loader2, Search, Tag, X, Folder, Plus, MoreHorizontal, Trash2, ImagePlus, Pencil } from 'lucide-react'
 import { useLibraryStore, setupLibraryProgressListener } from '../../store/useLibraryStore'
 import { EditAlbumModal } from '../EditAlbumModal'
@@ -200,13 +200,88 @@ function AlbumsSection() {
     )
 }
 
+// PeopleAlbumsSection - Shows named people as smart albums
+function PeopleAlbumsSection({ onSelectPerson }: { onSelectPerson: (personId: number) => void }) {
+    const { viewMode } = useLibraryStore()
+    const [people, setPeople] = useState<(PersonRecord & { face_count: number })[]>([])
+    const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+
+    useEffect(() => {
+        loadPeople()
+    }, [])
+
+    const loadPeople = async () => {
+        setIsLoading(true)
+        try {
+            const allPeople = await window.electronAPI.getAllPeople()
+            // Only show named people
+            setPeople(allPeople.filter(p => p.name && p.name.trim() !== ''))
+        } catch (error) {
+            console.error('Failed to load people:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleSelectPerson = (personId: number) => {
+        setSelectedPersonId(personId)
+        // Don't call showPeople() - we want to stay in Library view
+        onSelectPerson(personId)
+    }
+
+    if (people.length === 0 && !isLoading) return null
+
+    return (
+        <div className="mt-4 px-2">
+            <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
+                <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                </svg>
+                <span>People Albums</span>
+                {isLoading && <Loader2 size={10} className="ml-2 animate-spin" />}
+            </div>
+
+            <div className="space-y-0.5">
+                {people.map((person) => (
+                    <button
+                        key={person.id}
+                        onClick={() => handleSelectPerson(person.id)}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-left transition-colors ${viewMode === 'people' && selectedPersonId === person.id
+                            ? 'bg-purple-600 text-white'
+                            : 'text-gray-300 hover:bg-[#333333]'
+                            }`}
+                    >
+                        {/* Avatar with initial */}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${viewMode === 'people' && selectedPersonId === person.id
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-600 text-gray-300'
+                            }`}>
+                            {person.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <span className="flex-1 text-sm truncate">{person.name}</span>
+                        <span className={`text-xs ${viewMode === 'people' && selectedPersonId === person.id
+                            ? 'text-purple-200'
+                            : 'text-gray-500'
+                            }`}>
+                            {person.face_count}
+                        </span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 interface LibraryPanelProps {
     currentPath: string | null
     files: FileInfo[]
     onOpenFolder: () => void
+    onSelectPerson?: (personId: number) => void
+    onClearPerson?: () => void
 }
 
-export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelProps) {
+export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson, onClearPerson }: LibraryPanelProps) {
     const {
         images,
         stats,
@@ -415,6 +490,7 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     <button
                         onClick={() => {
                             setLocalQuery('')
+                            onClearPerson?.()
                             showAllPhotos()
                         }}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'library' && !searchQuery
@@ -430,7 +506,7 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
                     {/* Duplicates */}
                     {stats.duplicateGroups > 0 && (
                         <button
-                            onClick={() => showDuplicates()}
+                            onClick={() => { onClearPerson?.(); showDuplicates() }}
                             className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'duplicates'
                                 ? 'bg-orange-600 text-white'
                                 : 'text-gray-300 hover:bg-[#333333]'
@@ -444,7 +520,7 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
 
                     {/* People */}
                     <button
-                        onClick={() => showPeople()}
+                        onClick={() => { onClearPerson?.(); showPeople() }}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'people'
                             ? 'bg-purple-600 text-white'
                             : 'text-gray-300 hover:bg-[#333333]'
@@ -460,6 +536,9 @@ export function LibraryPanel({ currentPath, files, onOpenFolder }: LibraryPanelP
 
                 {/* Albums Section */}
                 <AlbumsSection />
+
+                {/* People Albums Section */}
+                {onSelectPerson && <PeopleAlbumsSection onSelectPerson={onSelectPerson} />}
 
                 {/* Tags Section */}
                 {tags.length > 0 && (
