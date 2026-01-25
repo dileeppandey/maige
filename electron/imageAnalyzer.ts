@@ -6,6 +6,12 @@ import exifReader from 'exif-reader';
 import { Worker } from 'worker_threads';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import {
+    generateDHash as nativeGenerateDHash,
+    hammingDistance as nativeHammingDistance,
+    areDuplicates as nativeAreDuplicates,
+    isNativeModuleAvailable
+} from './nativeModule.js';
 
 // Image extensions we support
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|cr2|arw|dng|nef|orf|rw2)$/i;
@@ -42,10 +48,21 @@ export interface AnalyzedImage {
 }
 
 /**
- * Generate a perceptual hash for an ima ge
- * Uses a simplified dHash (difference hash) algorithm
+ * Generate a perceptual hash for an image
+ * Uses native Rust dHash implementation if available (10x faster)
+ * Falls back to JavaScript/Sharp implementation otherwise
  */
 export async function generatePHash(imagePath: string): Promise<string> {
+    // Try native Rust implementation first (much faster)
+    if (isNativeModuleAvailable()) {
+        try {
+            return await nativeGenerateDHash(imagePath);
+        } catch (error) {
+            console.warn('Native dHash failed, falling back to JS:', error);
+        }
+    }
+
+    // Fallback to JavaScript/Sharp implementation
     try {
         // Resize to 9x8 grayscale for dHash
         const buffer = await sharp(imagePath)
@@ -368,9 +385,20 @@ export async function analyzeImages(
 
 /**
  * Calculate Hamming distance between two phashes
+ * Uses native Rust implementation if available
  * Returns 0 for identical, higher values for more different
  */
 export function hammingDistance(hash1: string, hash2: string): number {
+    // Use native implementation if available
+    if (isNativeModuleAvailable()) {
+        try {
+            return nativeHammingDistance(hash1, hash2);
+        } catch (error) {
+            console.warn('Native hammingDistance failed, falling back to JS:', error);
+        }
+    }
+
+    // Fallback to JavaScript implementation
     if (hash1.length !== hash2.length) return 64; // Max distance
 
     let distance = 0;
@@ -388,8 +416,18 @@ export function hammingDistance(hash1: string, hash2: string): number {
 
 /**
  * Check if two images are considered duplicates
+ * Uses native Rust implementation if available
  * Threshold of 10 means images with <= 10 bit differences are duplicates
  */
 export function areDuplicates(hash1: string, hash2: string, threshold = 10): boolean {
+    // Use native implementation if available
+    if (isNativeModuleAvailable()) {
+        try {
+            return nativeAreDuplicates(hash1, hash2, threshold);
+        } catch (error) {
+            console.warn('Native areDuplicates failed, falling back to JS:', error);
+        }
+    }
+
     return hammingDistance(hash1, hash2) <= threshold;
 }

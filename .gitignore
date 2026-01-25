@@ -22,8 +22,40 @@ dist-electron
 dist-app
 release
 
+# Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Rust build artifacts
+rust/*/target/
+*.rs.bk
+Cargo.lock
+
+# NAPI-RS generated files (keep these committed for npm package)
+# rust/maige-core/*.node
+# rust/maige-core/index.js
+# rust/maige-core/index.d.ts
+
 # OS generated files
 .DS_Store
 .Thumbnails
 ehthumbs.db
 Thumbs.db
+
+# Database files (local development)
+*.db
+*.db-journal
+*.db-wal
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

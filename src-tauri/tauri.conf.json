@@ -1,0 +1,51 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "Maige",
+    "version": "0.1.0",
+    "identifier": "com.maige.app",
+    "build": {
+        "beforeDevCommand": "npm run dev:frontend",
+        "devUrl": "http://localhost:5173",
+        "beforeBuildCommand": "npm run build:frontend",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "withGlobalTauri": true,
+        "windows": [
+            {
+                "title": "Maige",
+                "width": 1400,
+                "height": 900,
+                "minWidth": 1024,
+                "minHeight": 768,
+                "resizable": true,
+                "fullscreen": false,
+                "decorations": true,
+                "transparent": false
+            }
+        ],
+        "security": {
+            "csp": null,
+            "assetProtocol": {
+                "enable": true,
+                "scope": [
+                    "**"
+                ]
+            }
+        }
+    },
+    "bundle": {
+        "icon": []
+    },
+    "plugins": {
+        "shell": {
+            "open": true
+        },
+        "fs": {
+            "all": true,
+            "scope": [
+                "**"
+            ]
+        }
+    }
+}
