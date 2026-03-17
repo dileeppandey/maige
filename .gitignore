@@ -26,10 +26,8 @@ rust/*/target/
 *.rs.bk
 Cargo.lock
 
-# NAPI-RS generated files (keep these committed for npm package)
-# rust/maige-core/*.node
-# rust/maige-core/index.js
-# rust/maige-core/index.d.ts
+# Native module binaries
+*.node
 
 # OS generated files
 .DS_Store

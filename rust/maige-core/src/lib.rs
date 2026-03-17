@@ -6,7 +6,6 @@
 pub mod adjustments;
 pub mod error;
 pub mod histogram;
-pub mod napi;
 pub mod phash;
 pub mod processor;
 
@@ -15,9 +14,3 @@ pub use error::{Error, Result};
 pub use histogram::Histogram;
 pub use phash::PHash;
 pub use processor::ImageProcessor;
-
-// Re-export NAPI bindings
-pub use napi::*;
-
-/// Library version
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
