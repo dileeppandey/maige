@@ -441,6 +441,76 @@ const apiImpl = {
         // Face detection is handled on frontend via MediaPipe
         return () => { };
     },
+
+    // ================== AI Operations ==================
+
+    readImageAsBase64: async (filePath: string): Promise<string> => {
+        try {
+            const { readFile } = await import('@tauri-apps/plugin-fs');
+            const bytes = await readFile(filePath);
+            // Encode Uint8Array to base64
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        } catch (e) {
+            console.error('readImageAsBase64 error:', e);
+            return '';
+        }
+    },
+
+    saveAIConfig: async (config: object): Promise<void> => {
+        try {
+            await invoke('save_ai_config', { config: JSON.stringify(config) });
+        } catch (e) {
+            console.error('saveAIConfig error:', e);
+        }
+    },
+
+    loadAIConfig: async (): Promise<object | null> => {
+        try {
+            return await invoke<object | null>('load_ai_config');
+        } catch (e) {
+            console.error('loadAIConfig error:', e);
+            return null;
+        }
+    },
+
+    getAPIKey: async (provider: string): Promise<string> => {
+        try {
+            return await invoke<string>('get_api_key', { provider });
+        } catch (e) {
+            console.error('getAPIKey error:', e);
+            return '';
+        }
+    },
+
+    saveAPIKey: async (provider: string, key: string): Promise<void> => {
+        try {
+            await invoke('save_api_key', { provider, key });
+        } catch (e) {
+            console.error('saveAPIKey error:', e);
+        }
+    },
+
+    markImageAIEdited: async (imageId: number): Promise<void> => {
+        try {
+            await invoke('mark_image_ai_edited', { imageId });
+        } catch (e) {
+            console.error('markImageAIEdited error:', e);
+        }
+    },
+
+    getAIEnhancedImages: async (): Promise<LibraryImage[]> => {
+        try {
+            return await invoke<LibraryImage[]>('get_ai_enhanced_images');
+        } catch (e) {
+            console.error('getAIEnhancedImages error:', e);
+            return [];
+        }
+    },
 };
 
 // Assign to window
