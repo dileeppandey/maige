@@ -20,7 +20,7 @@ export async function getEditSuggestions(
 export async function batchEdit(
     filePath: string,
     instruction: string,
-    operations: Record<string, boolean>,
+    _operations: Record<string, boolean>,
     provider: 'claude' | 'gpt4vision' | 'gemini'
 ): Promise<Partial<ImageAdjustments>> {
     return getEditSuggestions(filePath, instruction, provider)

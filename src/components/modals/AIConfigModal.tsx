@@ -20,11 +20,12 @@ import { useUIStore } from '../../store/useUIStore';
 
 type Section = 'provider' | 'parameters' | 'vision' | 'voice' | 'prompts' | 'apikeys';
 
-type Provider = 'claude' | 'gpt4' | 'gemini';
+type Provider = 'claude' | 'gpt4vision' | 'gemini';
 
 interface InputChannels {
     textPrompts: boolean;
     imageReference: boolean;
+    voiceInput: boolean;
 }
 
 interface APIKeys {
@@ -69,7 +70,7 @@ const PROVIDERS: { id: Provider; name: string; description: string }[] = [
         description: 'Best for nuanced editing instructions and multi-step workflows',
     },
     {
-        id: 'gpt4',
+        id: 'gpt4vision',
         name: 'GPT-4 Vision (OpenAI)',
         description: 'Strong visual understanding and creative editing suggestions',
     },
@@ -165,9 +166,7 @@ function ProviderSection({
                         </div>
                         <Toggle
                             enabled={inputChannels.textPrompts}
-                            onChange={(val) =>
-                                onToggleChannel('textPrompts')
-                            }
+                            onChange={() => onToggleChannel('textPrompts')}
                         />
                     </div>
                     <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-[#333333] bg-[#2a2a2a]">
@@ -302,6 +301,7 @@ export function AIConfigModal() {
     const [inputChannels, setInputChannels] = useState<InputChannels>({
         textPrompts: true,
         imageReference: false,
+        voiceInput: false,
     });
     const [apiKeys, setApiKeys] = useState<APIKeys>({
         anthropic: '',

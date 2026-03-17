@@ -90,7 +90,6 @@ const apiImpl = {
     getStats: async (): Promise<Stats> => {
         try {
             const images = await invoke<LibraryImage[]>('get_all_images');
-            const albums = await invoke<Album[]>('get_albums');
             return {
                 totalImages: images.length,
                 duplicateGroups: 0,
@@ -377,59 +376,6 @@ const apiImpl = {
         } catch (e) {
             console.error('exportImage error:', e);
             return { success: false, error: String(e) };
-        }
-    },
-
-    // ================== AI Operations ==================
-
-    markImageAIEdited: async (imageId: number): Promise<void> => {
-        try {
-            await invoke('mark_image_ai_edited', { imageId });
-        } catch (e) {
-            console.error('markImageAIEdited error:', e);
-        }
-    },
-
-    getAIEnhancedImages: async (): Promise<LibraryImage[]> => {
-        try {
-            return await invoke<LibraryImage[]>('get_ai_enhanced_images');
-        } catch (e) {
-            console.error('getAIEnhancedImages error:', e);
-            return [];
-        }
-    },
-
-    saveAIConfig: async (config: string): Promise<void> => {
-        try {
-            await invoke('save_ai_config', { config });
-        } catch (e) {
-            console.error('saveAIConfig error:', e);
-        }
-    },
-
-    loadAIConfig: async (): Promise<string | null> => {
-        try {
-            return await invoke<string | null>('load_ai_config');
-        } catch (e) {
-            console.error('loadAIConfig error:', e);
-            return null;
-        }
-    },
-
-    getApiKey: async (provider: string): Promise<string | null> => {
-        try {
-            return await invoke<string | null>('get_api_key', { provider });
-        } catch (e) {
-            console.error('getApiKey error:', e);
-            return null;
-        }
-    },
-
-    saveApiKey: async (provider: string, key: string): Promise<void> => {
-        try {
-            await invoke('save_api_key', { provider, key });
-        } catch (e) {
-            console.error('saveApiKey error:', e);
         }
     },
 

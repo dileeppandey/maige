@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AIMessage, AIConfig, BatchOperation, ImageAdjustments } from '../../shared/types'
+import type { AIMessage, AIConfig, BatchOperation, ImageAdjustments, ColorAdjustments } from '../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../shared/types'
 import { getEditSuggestions } from '../services/aiService'
 import { useEditStore } from './useEditStore'
@@ -124,8 +124,10 @@ export const useAIStore = create<AIState>((set, get) => ({
             },
             color: {
                 ...(currentAdjustments.color ?? DEFAULT_IMAGE_ADJUSTMENTS.color),
-                ...(message.proposedAdjustments.color ?? {}),
-            },
+                ...Object.fromEntries(
+                    Object.entries(message.proposedAdjustments.color ?? {}).filter(([, v]) => v !== undefined)
+                ),
+            } as ColorAdjustments,
         }
 
         editStore.setAdjustments(selectedPath, merged)
@@ -177,8 +179,10 @@ export const useAIStore = create<AIState>((set, get) => ({
                     },
                     color: {
                         ...(currentAdjustments.color ?? DEFAULT_IMAGE_ADJUSTMENTS.color),
-                        ...(proposedAdjustments.color ?? {}),
-                    },
+                        ...Object.fromEntries(
+                            Object.entries(proposedAdjustments.color ?? {}).filter(([, v]) => v !== undefined)
+                        ),
+                    } as ColorAdjustments,
                 }
                 editStore.setAdjustments(filePath, merged)
             } catch (e) {
