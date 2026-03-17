@@ -1,0 +1,42 @@
+[package]
+name = "maige-core"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance image processing library for Maige image editor"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Image processing - use 0.24 for better compatibility with img_hash
+image = { version = "0.24", features = ["jpeg", "png", "webp", "tiff", "gif", "bmp"] }
+
+# Performance
+rayon = "1.10"              # Parallel processing
+
+# Hashing
+img_hash = "3.2"            # Perceptual hashing
+sha2 = "0.10"               # SHA256 file hashing
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling  
+thiserror = "1.0"
+
+# NAPI-RS for Node.js bindings
+napi = { version = "2", features = ["full", "serde-json"] }
+napi-derive = "2"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[dev-dependencies]
+tempfile = "3"

@@ -4,12 +4,7 @@ export { };
 
 declare global {
     interface Window {
-        electronAPI: {
-            versions: {
-                node: () => string;
-                chrome: () => string;
-                electron: () => string;
-            };
+        api: {
             selectFolder: () => Promise<string | null>;
             readFolder: (path: string) => Promise<FileInfo[]>;
 
@@ -33,7 +28,7 @@ declare global {
             getImageByPath: (filePath: string) => Promise<ImageRecord | null>;
             search: (query: string) => Promise<SearchResult[]>;
 
-            // Face operations (Phase 3)
+            // Face operations
             saveFaceDetections: (imageId: number, imagePath: string, detections: FaceDetection[]) => Promise<FaceDetectionResult[]>;
             getFacesForImage: (imageId: number) => Promise<FaceRecord[]>;
             getUnidentifiedFaces: () => Promise<FaceRecord[]>;
@@ -42,7 +37,7 @@ declare global {
             getFaceThumbnail: (faceId: number) => Promise<string | null>;
             getFaceInfo: (faceId: number) => Promise<{ id: number; image_id: number; image_path: string; person_id: number | null } | null>;
 
-            // People operations (Phase 3)
+            // People operations
             getAllPeople: () => Promise<PersonRecord[]>;
             createPersonFromFace: (faceId: number, name: string) => Promise<number | null>;
             createPersonFromCluster: (faceIds: number[], name: string) => Promise<number | null>;

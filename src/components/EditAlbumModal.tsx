@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, Folder } from 'lucide-react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import type { AlbumRecord } from '../../shared/types';
+import { assetUrl } from '../utils/assetUrl';
 
 interface EditAlbumModalProps {
     album: AlbumRecord;
@@ -33,7 +34,7 @@ export function EditAlbumModal({ album, onClose }: EditAlbumModalProps) {
 
         setIsSaving(true);
         try {
-            await window.electronAPI.updateAlbum(album.id, {
+            await window.api.updateAlbum(album.id, {
                 name: name.trim(),
                 description: description.trim() || undefined,
             });
@@ -62,7 +63,7 @@ export function EditAlbumModal({ album, onClose }: EditAlbumModalProps) {
                         <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
                             {album.cover_path ? (
                                 <img
-                                    src={`media://${encodeURIComponent(album.cover_path)}`}
+                                    src={assetUrl(album.cover_path)}
                                     className="w-full h-full rounded-lg object-cover"
                                 />
                             ) : (

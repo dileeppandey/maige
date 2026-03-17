@@ -210,37 +210,49 @@ export class ImageProcessor {
      * Load an image and store original pixels
      */
     async loadImage(src: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const img = new Image()
-            img.crossOrigin = 'anonymous'
+        // Fetch as blob to avoid CORS issues with Tauri's asset protocol,
+        // then create a same-origin object URL for canvas pixel access.
+        const response = await fetch(src)
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${src} (${response.status})`)
+        }
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
 
-            img.onload = () => {
-                this.width = img.naturalWidth
-                this.height = img.naturalHeight
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const img = new Image()
 
-                // Store original in OffscreenCanvas
-                this.originalCanvas = new OffscreenCanvas(this.width, this.height)
-                this.originalCtx = this.originalCanvas.getContext('2d')
-                if (!this.originalCtx) {
-                    reject(new Error('Failed to get 2D context'))
-                    return
+                img.onload = () => {
+                    this.width = img.naturalWidth
+                    this.height = img.naturalHeight
+
+                    // Store original in OffscreenCanvas
+                    this.originalCanvas = new OffscreenCanvas(this.width, this.height)
+                    this.originalCtx = this.originalCanvas.getContext('2d')
+                    if (!this.originalCtx) {
+                        reject(new Error('Failed to get 2D context'))
+                        return
+                    }
+                    this.originalCtx.drawImage(img, 0, 0)
+
+                    // Create output canvas
+                    this.outputCanvas = new OffscreenCanvas(this.width, this.height)
+                    this.outputCtx = this.outputCanvas.getContext('2d')
+                    if (!this.outputCtx) {
+                        reject(new Error('Failed to get 2D context for output'))
+                        return
+                    }
+
+                    resolve()
                 }
-                this.originalCtx.drawImage(img, 0, 0)
 
-                // Create output canvas
-                this.outputCanvas = new OffscreenCanvas(this.width, this.height)
-                this.outputCtx = this.outputCanvas.getContext('2d')
-                if (!this.outputCtx) {
-                    reject(new Error('Failed to get 2D context for output'))
-                    return
-                }
-
-                resolve()
-            }
-
-            img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
-            img.src = src
-        })
+                img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+                img.src = objectUrl
+            })
+        } finally {
+            URL.revokeObjectURL(objectUrl)
+        }
     }
 
     /**

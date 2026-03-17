@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Copy, Trash2, Check, Loader2, ArrowLeft } from 'lucide-react';
 import type { DuplicateGroup, LibraryImage } from '../../../shared/types';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { assetUrl } from '../../utils/assetUrl';
 
 interface DuplicatesPanelProps {
     onSelectImage?: (path: string) => void;
@@ -21,7 +22,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
     const loadDuplicates = useCallback(async () => {
         setIsLoading(true);
         try {
-            const groups = await window.electronAPI.getDuplicates();
+            const groups = await window.api.getDuplicates();
             setDuplicateGroups(groups);
         } catch (error) {
             console.error('Failed to load duplicates:', error);
@@ -65,7 +66,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
         if (!confirmDelete) return;
 
         try {
-            const result = await window.electronAPI.deleteImages(imageIdsToDelete, true);
+            const result = await window.api.deleteImages(imageIdsToDelete, true);
             if (result.success) {
                 console.log(`Deleted ${result.deletedFromDb} from DB, ${result.deletedFromDisk} from disk`);
                 setSelectedInGroup(prev => ({ ...prev, [groupIndex]: new Set() }));
@@ -150,7 +151,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
                                                 onClick={() => toggleSelection(groupIndex, image.id)}
                                             >
                                                 <img
-                                                    src={`media://${encodeURIComponent(image.file_path)}`}
+                                                    src={assetUrl(image.file_path)}
                                                     alt={image.file_path.split('/').pop()}
                                                     className="w-full h-full object-cover"
                                                     onDoubleClick={(e) => {

@@ -53,8 +53,6 @@ function App() {
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
 
   // Local state for file management
-  const [currentPath, setCurrentPath] = React.useState<string | null>(null)
-  const [files, setFiles] = React.useState<FileInfo[]>([])
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
   const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
@@ -67,7 +65,7 @@ function App() {
   const handleSelectPerson = async (personId: number) => {
     setSelectedPersonId(personId)
     try {
-      const images = await window.electronAPI.getImagesByPerson(personId)
+      const images = await window.api.getImagesByPerson(personId)
       const fileInfos: FileInfo[] = images.map(img => ({
         name: img.file_path.split('/').pop() || '',
         path: img.file_path,
@@ -89,7 +87,7 @@ function App() {
     const loadAlbumFiles = async () => {
       if (viewMode === 'album' && selectedAlbumId) {
         try {
-          const images = await window.electronAPI.getAlbumImages(selectedAlbumId)
+          const images = await window.api.getAlbumImages(selectedAlbumId)
           const fileInfos: FileInfo[] = images.map(img => ({
             name: img.file_path.split('/').pop() || '',
             path: img.file_path,
@@ -117,13 +115,13 @@ function App() {
           // Get image paths for each face in the cluster
           const faceImages = await Promise.all(
             selectedCluster.faceIds.map(async (faceId) => {
-              const faceInfo = await window.electronAPI.getFaceInfo(faceId)
+              const faceInfo = await window.api.getFaceInfo(faceId)
               return faceInfo
             })
           )
 
           // Define the face info type
-          type FaceInfo = NonNullable<Awaited<ReturnType<typeof window.electronAPI.getFaceInfo>>>
+          type FaceInfo = NonNullable<Awaited<ReturnType<typeof window.api.getFaceInfo>>>
 
           // Convert to FileInfo, filtering out nulls and deduping by path
           const seenPaths = new Set<string>()
@@ -179,8 +177,8 @@ function App() {
         similarity: viewMode === 'search' ? result.similarity : undefined,
       }))
     }
-    return files
-  }, [viewMode, searchResults, files, selectedPersonId, personFiles, selectedAlbumId, albumFiles, selectedCluster, clusterFiles])
+    return []
+  }, [viewMode, searchResults, selectedPersonId, personFiles, selectedAlbumId, albumFiles, selectedCluster, clusterFiles])
 
   // Sync selected file with edit store
   useEffect(() => {
@@ -193,22 +191,6 @@ function App() {
     window.addEventListener('showLibrary', handleShowLibrary)
     return () => window.removeEventListener('showLibrary', handleShowLibrary)
   }, [showAllPhotos])
-
-  const handleOpenFolder = async () => {
-    try {
-      const path = await window.electronAPI.selectFolder()
-      if (path) {
-        setCurrentPath(path)
-        const files = await window.electronAPI.readFolder(path)
-        setFiles(files)
-        if (files.length > 0) {
-          setSelectedFile(files[0])
-        }
-      }
-    } catch (error) {
-      console.error("Error opening folder:", error)
-    }
-  }
 
   // Get current adjustments for selected file
   const currentAdjustments = getAdjustments(selectedPath)
@@ -269,16 +251,15 @@ function App() {
 
   // Connect Menu Actions
   useEffect(() => {
-    const cleanup = window.electronAPI.onMenuAction((action, data) => {
+    const cleanup = window.api.onMenuAction((action, data) => {
       console.log('Menu action:', action, data)
 
       switch (action) {
         // File
         case 'openFolder':
-          if (typeof data === 'string') {
-            setCurrentPath(data)
-            window.electronAPI.readFolder(data).then(setFiles)
-          }
+          window.api.selectFolder().then(path => {
+            if (path) useLibraryStore.getState().importFolder(path)
+          })
           break
         case 'importImages':
           if (Array.isArray(data)) {
@@ -287,9 +268,8 @@ function App() {
           }
           break
         case 'closeFolder':
-          setCurrentPath(null)
-          setFiles([])
           setSelectedFile(null)
+          useLibraryStore.getState().showAllPhotos()
           break
 
         // Edit & Library
@@ -387,9 +367,6 @@ function App() {
             />
           ) : showLibraryPanel ? (
             <LibraryPanel
-              currentPath={currentPath}
-              files={files}
-              onOpenFolder={handleOpenFolder}
               onSelectPerson={handleSelectPerson}
               onClearPerson={() => {
                 setSelectedPersonId(null)

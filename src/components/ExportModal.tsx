@@ -52,7 +52,7 @@ export function ExportModal({
                 const extension = format === 'jpeg' ? 'jpg' : 'png'
                 const defaultPath = `${baseName}_edited.${extension}`
 
-                outputPath = await window.electronAPI.showExportSaveDialog(defaultPath, format)
+                outputPath = await window.api.showExportSaveDialog(defaultPath, format)
             }
 
             if (!outputPath) {
@@ -61,7 +61,7 @@ export function ExportModal({
             }
 
             // Export image
-            const result = await window.electronAPI.exportImage({
+            const result = await window.api.exportImage({
                 dataUrl,
                 outputPath,
                 format,
@@ -171,7 +171,7 @@ export function ExportModal({
                     <button
                         onClick={() => handleExport(true)}
                         disabled={isExporting}
-                        className="py-2 px-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded text-sm font-medium transition-colors"
+                        className="flex-1 py-2 px-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded text-sm font-medium transition-colors"
                         title="Overwrite original file"
                     >
                         Overwrite

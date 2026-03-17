@@ -179,7 +179,7 @@ export const useEditStore = create<EditState>((set, get) => ({
         set((state) => {
             const newPresets = [...state.presets, preset]
             // Persist to disk asynchronously
-            window.electronAPI?.savePresets(newPresets)
+            window.api?.savePresets(newPresets)
             return { presets: newPresets }
         })
     },
@@ -196,7 +196,7 @@ export const useEditStore = create<EditState>((set, get) => ({
         set((state) => {
             const newPresets = state.presets.filter(p => p.id !== presetId)
             // Persist to disk asynchronously
-            window.electronAPI?.savePresets(newPresets)
+            window.api?.savePresets(newPresets)
             return { presets: newPresets }
         })
     },
@@ -204,7 +204,7 @@ export const useEditStore = create<EditState>((set, get) => ({
     // Load presets from disk on app start
     loadPresetsFromDisk: async () => {
         try {
-            const presets = await window.electronAPI?.loadPresets()
+            const presets = await window.api?.loadPresets()
             if (Array.isArray(presets)) {
                 set({ presets: presets as StylePreset[] })
             }

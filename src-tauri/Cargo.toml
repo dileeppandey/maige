@@ -1,0 +1,48 @@
+[package]
+name = "maige"
+version = "0.1.0"
+description = "A professional image editor"
+authors = ["Dileep Pandey"]
+license = "MIT"
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+
+# Image processing - use our maige-core library
+image = { version = "0.24", features = ["jpeg", "png", "webp", "tiff", "gif", "bmp"] }
+rayon = "1.10"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Hashing
+sha2 = "0.10"
+img_hash = "3.2"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Base64 encoding
+base64 = "0.22"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+strip = true

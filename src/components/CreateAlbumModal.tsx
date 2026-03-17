@@ -42,7 +42,7 @@ export function CreateAlbumModal({ isOpen, onClose }: CreateAlbumModalProps) {
     const loadPeople = async () => {
         setLoadingPeople(true);
         try {
-            const people = await window.electronAPI.getAllPeople();
+            const people = await window.api.getAllPeople();
             // Only show named people (not unnamed clusters)
             setAvailablePeople(people.filter(p => p.name && p.name.trim() !== ''));
         } catch (error) {
@@ -55,7 +55,7 @@ export function CreateAlbumModal({ isOpen, onClose }: CreateAlbumModalProps) {
     const loadTags = async () => {
         setLoadingTags(true);
         try {
-            const tags = await window.electronAPI.getTags();
+            const tags = await window.api.getTags();
             setAvailableTags(tags);
         } catch (error) {
             console.error('Failed to load tags:', error);
@@ -107,19 +107,19 @@ export function CreateAlbumModal({ isOpen, onClose }: CreateAlbumModalProps) {
             const imageIdsSet = new Set<number>();
 
             for (const personId of selectedPeopleIds) {
-                const images = await window.electronAPI.getImagesByPerson(personId);
+                const images = await window.api.getImagesByPerson(personId);
                 images.forEach(img => imageIdsSet.add(img.id));
             }
 
             // 3. Gather image IDs from selected tags
             for (const tagName of selectedTags) {
-                const images = await window.electronAPI.getImagesByTag(tagName);
+                const images = await window.api.getImagesByTag(tagName);
                 images.forEach(img => imageIdsSet.add(img.id));
             }
 
             // 4. Add photos to album if any were selected
             if (imageIdsSet.size > 0) {
-                await window.electronAPI.addPhotosToAlbum(album.id, Array.from(imageIdsSet));
+                await window.api.addPhotosToAlbum(album.id, Array.from(imageIdsSet));
             }
 
             // 5. Refresh albums and show the new album
