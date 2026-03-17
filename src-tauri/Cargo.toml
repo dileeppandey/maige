@@ -34,6 +34,9 @@ img_hash = "3.2"
 thiserror = "1.0"
 anyhow = "1.0"
 
+# Base64 encoding
+base64 = "0.22"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

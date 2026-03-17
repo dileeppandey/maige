@@ -4,9 +4,9 @@
     "version": "0.1.0",
     "identifier": "com.maige.app",
     "build": {
-        "beforeDevCommand": "npm run dev:frontend",
+        "beforeDevCommand": "npm run dev",
         "devUrl": "http://localhost:5173",
-        "beforeBuildCommand": "npm run build:frontend",
+        "beforeBuildCommand": "npm run build",
         "frontendDist": "../dist"
     },
     "app": {
@@ -35,17 +35,16 @@
         }
     },
     "bundle": {
-        "icon": []
+        "icon": [
+            "icons/icon.png"
+        ]
     },
     "plugins": {
         "shell": {
             "open": true
         },
         "fs": {
-            "all": true,
-            "scope": [
-                "**"
-            ]
+            "requireLiteralLeadingDot": false
         }
     }
 }

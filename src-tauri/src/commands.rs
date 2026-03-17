@@ -1,8 +1,8 @@
 //! Tauri command handlers
-//! 
+//!
 //! These commands replace the Electron IPC handlers
 
-use crate::database::{self, Album, DbImage};
+use crate::database::{self, Album, DbImage, FaceDetectionInput, FaceRecord, FaceStats, ImageTag, Person, Preset, TagInfo};
 use crate::image_processor::{self, ImageMetadata, Histogram, Adjustments};
 use tauri::{AppHandle, Emitter};
 
@@ -38,10 +38,10 @@ pub async fn import_folder(
     let image_paths = image_processor::scan_directory(&folder_path)
         .await
         .map_err(|e| e.to_string())?;
-    
+
     let mut imported = Vec::new();
     let total = image_paths.len();
-    
+
     for (i, path) in image_paths.iter().enumerate() {
         // Emit progress event
         let _ = app.emit("import-progress", serde_json::json!({
@@ -49,7 +49,7 @@ pub async fn import_folder(
             "total": total,
             "file": path
         }));
-        
+
         match image_processor::analyze_image(path).await {
             Ok(analyzed) => {
                 // Store in database
@@ -61,7 +61,7 @@ pub async fn import_folder(
             Err(e) => eprintln!("Failed to analyze {}: {}", path, e),
         }
     }
-    
+
     Ok(imported)
 }
 
@@ -215,6 +215,191 @@ pub async fn remove_from_album(
     image_id: i64,
 ) -> CmdResult<()> {
     database::remove_from_album(&app, album_id, image_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// New Commands
+// ============================================================================
+
+/// Delete images by IDs
+#[tauri::command]
+pub async fn delete_images(app: AppHandle, ids: Vec<i64>) -> CmdResult<()> {
+    database::delete_images(&app, &ids)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get images in an album
+#[tauri::command]
+pub async fn get_album_images(app: AppHandle, album_id: i64) -> CmdResult<Vec<DbImage>> {
+    database::get_album_images(&app, album_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete an album
+#[tauri::command]
+pub async fn delete_album(app: AppHandle, album_id: i64) -> CmdResult<()> {
+    database::delete_album(&app, album_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Update an album
+#[tauri::command]
+pub async fn update_album(app: AppHandle, album_id: i64, name: Option<String>, description: Option<String>) -> CmdResult<()> {
+    database::update_album(&app, album_id, name, description)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Find duplicate images
+#[tauri::command]
+pub async fn get_duplicates(app: AppHandle) -> CmdResult<Vec<Vec<String>>> {
+    database::get_duplicates(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get all tags with counts
+#[tauri::command]
+pub async fn get_tags(app: AppHandle) -> CmdResult<Vec<TagInfo>> {
+    database::get_tags(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get images by tag name
+#[tauri::command]
+pub async fn get_images_by_tag(app: AppHandle, tag_name: String) -> CmdResult<Vec<DbImage>> {
+    database::get_images_by_tag(&app, &tag_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get tags for an image by file path
+#[tauri::command]
+pub async fn get_image_tags_by_path(app: AppHandle, file_path: String) -> CmdResult<Vec<ImageTag>> {
+    database::get_image_tags_by_path(&app, &file_path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get all non-hidden people
+#[tauri::command]
+pub async fn get_all_people(app: AppHandle) -> CmdResult<Vec<Person>> {
+    database::get_all_people(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get all hidden people
+#[tauri::command]
+pub async fn get_hidden_people(app: AppHandle) -> CmdResult<Vec<Person>> {
+    database::get_hidden_people(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get images associated with a person
+#[tauri::command]
+pub async fn get_images_by_person(app: AppHandle, person_id: i64) -> CmdResult<Vec<DbImage>> {
+    database::get_images_by_person(&app, person_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Set a person's hidden status
+#[tauri::command]
+pub async fn set_person_hidden(app: AppHandle, person_id: i64, hidden: bool) -> CmdResult<()> {
+    database::set_person_hidden(&app, person_id, hidden)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Assign a face to a person
+#[tauri::command]
+pub async fn assign_face_to_person(app: AppHandle, face_id: i64, person_id: i64) -> CmdResult<()> {
+    database::assign_face_to_person(&app, face_id, person_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Save face detections for an image
+#[tauri::command]
+pub async fn save_face_detections(
+    app: AppHandle,
+    image_id: i64,
+    image_path: String,
+    detections: Vec<FaceDetectionInput>,
+) -> CmdResult<Vec<FaceRecord>> {
+    database::save_face_detections(&app, image_id, &image_path, &detections)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get all unidentified faces
+#[tauri::command]
+pub async fn get_unidentified_faces(app: AppHandle) -> CmdResult<Vec<FaceRecord>> {
+    database::get_unidentified_faces(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get face statistics
+#[tauri::command]
+pub async fn get_face_stats(app: AppHandle) -> CmdResult<FaceStats> {
+    database::get_face_stats(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get face info by ID
+#[tauri::command]
+pub async fn get_face_info(app: AppHandle, face_id: i64) -> CmdResult<Option<FaceRecord>> {
+    database::get_face_info(&app, face_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get a face thumbnail as base64 JPEG
+#[tauri::command]
+pub async fn get_face_thumbnail(app: AppHandle, face_id: i64) -> CmdResult<Option<String>> {
+    database::get_face_thumbnail(&app, face_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Create a person from a single face
+#[tauri::command]
+pub async fn create_person_from_face(app: AppHandle, face_id: i64, name: String) -> CmdResult<Person> {
+    database::create_person_from_face(&app, face_id, &name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Create a person from a cluster of faces
+#[tauri::command]
+pub async fn create_person_from_cluster(app: AppHandle, face_ids: Vec<i64>, name: String) -> CmdResult<Person> {
+    database::create_person_from_cluster(&app, &face_ids, &name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Save presets
+#[tauri::command]
+pub async fn save_presets(app: AppHandle, presets: Vec<serde_json::Value>) -> CmdResult<()> {
+    database::save_presets(&app, presets)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Load all presets
+#[tauri::command]
+pub async fn load_presets(app: AppHandle) -> CmdResult<Vec<Preset>> {
+    database::load_presets(&app)
         .await
         .map_err(|e| e.to_string())
 }
