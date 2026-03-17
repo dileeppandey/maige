@@ -10,9 +10,11 @@ import { ResizableLayout } from './components/layout/ResizableLayout'
 import { FloatingActionBar } from './components/FloatingActionBar'
 import { PickModeHeader } from './components/PickModeHeader'
 import { CreateAlbumModal } from './components/CreateAlbumModal'
+import { AIConfigModal } from './components/modals/AIConfigModal'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useUIStore } from './store/useUIStore'
+import { useAIStore } from './store/useAIStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
 import { useCallback } from 'react'
 
@@ -48,6 +50,12 @@ function App() {
   useEffect(() => {
     loadPresetsFromDisk()
   }, [loadPresetsFromDisk])
+
+  // Load AI config on startup
+  const { loadConfig: loadAIConfig } = useAIStore()
+  useEffect(() => {
+    loadAIConfig()
+  }, [loadAIConfig])
 
   // Get search state from library store
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
@@ -421,6 +429,9 @@ function App() {
         isOpen={showCreateAlbumModal}
         onClose={() => setShowCreateAlbumModal(false)}
       />
+
+      {/* AI Config Modal */}
+      <AIConfigModal />
 
     </div>
   )

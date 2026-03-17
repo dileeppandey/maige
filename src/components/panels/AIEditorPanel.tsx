@@ -6,36 +6,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { Sparkles, Send, Paperclip, ImageIcon, Mic, Check, User } from 'lucide-react'
 import type { ImageAdjustments } from '../../../shared/types'
-
-interface AIMessage {
-    id: string
-    role: 'user' | 'assistant'
-    content: string
-    proposedAdjustments?: Record<string, number>
-    applied: boolean
-    timestamp: string
-}
+import { useAIStore } from '../../store/useAIStore'
 
 interface AIEditorPanelProps {
     selectedImagePath: string | null
     onApplyAdjustments: (adjustments: Partial<ImageAdjustments>) => void
 }
 
-// Mock AI responses for demo purposes (will be replaced with real AI integration)
-const MOCK_RESPONSES: { content: string; adjustments: Record<string, number> }[] = [
-    {
-        content: "I've applied the following adjustments to enhance the sky:",
-        adjustments: { vibrance: 55, temperature: 12, contrast: 18 },
-    },
-    {
-        content: "Here are some adjustments to give your photo a warm golden hour feel:",
-        adjustments: { exposure: 10, highlights: -20, shadows: 30, temperature: 35, saturation: 15 },
-    },
-    {
-        content: "I've applied a cinematic grade to your photo:",
-        adjustments: { contrast: 30, highlights: -30, shadows: -20, saturation: -20, temperature: -10 },
-    },
-]
 
 function AdjustmentChip({ label, value }: { label: string; value: number }) {
     const isPositive = value >= 0
@@ -68,36 +45,13 @@ function formatAdjustmentLabel(key: string): string {
     return labels[key] ?? key.charAt(0).toUpperCase() + key.slice(1)
 }
 
-function buildAdjustmentsFromRecord(
-    record: Record<string, number>
-): Partial<ImageAdjustments> {
-    const lightKeys = new Set(['exposure', 'contrast', 'highlights', 'shadows', 'whites', 'blacks'])
-    const colorKeys = new Set(['temperature', 'tint', 'saturation', 'vibrance'])
 
-    const light: Record<string, number> = {}
-    const color: Record<string, number> = {}
-
-    for (const [key, value] of Object.entries(record)) {
-        if (lightKeys.has(key)) light[key] = value
-        else if (colorKeys.has(key)) color[key] = value
-    }
-
-    const result: Partial<ImageAdjustments> = {}
-    if (Object.keys(light).length > 0) result.light = light as ImageAdjustments['light']
-    if (Object.keys(color).length > 0) result.color = color as NonNullable<ImageAdjustments['color']>
-
-    return result
-}
-
-export function AIEditorPanel({ selectedImagePath: _selectedImagePath, onApplyAdjustments }: AIEditorPanelProps) {
-    // Local state scaffold — will be replaced with useAIStore when merged
-    const [messages, setMessages] = useState<AIMessage[]>([])
-    const [isThinking, setIsThinking] = useState(false)
+export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEditorPanelProps) {
+    const { messages, isThinking, sendMessage, applyProposal, clearMessages } = useAIStore()
     const [input, setInput] = useState('')
 
     const threadRef = useRef<HTMLDivElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
-    const mockResponseIndex = useRef(0)
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -116,37 +70,9 @@ export function AIEditorPanel({ selectedImagePath: _selectedImagePath, onApplyAd
 
     const handleSend = () => {
         const trimmed = input.trim()
-        if (!trimmed || isThinking) return
-
-        const userMessage: AIMessage = {
-            id: crypto.randomUUID(),
-            role: 'user',
-            content: trimmed,
-            applied: false,
-            timestamp: new Date().toISOString(),
-        }
-
-        setMessages(prev => [...prev, userMessage])
+        if (!trimmed || isThinking || !selectedImagePath) return
         setInput('')
-        setIsThinking(true)
-
-        // Simulate AI response after 1.5s
-        setTimeout(() => {
-            const mock = MOCK_RESPONSES[mockResponseIndex.current % MOCK_RESPONSES.length]
-            mockResponseIndex.current += 1
-
-            const aiMessage: AIMessage = {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: mock.content,
-                proposedAdjustments: mock.adjustments,
-                applied: false,
-                timestamp: new Date().toISOString(),
-            }
-
-            setMessages(prev => [...prev, aiMessage])
-            setIsThinking(false)
-        }, 1500)
+        sendMessage(selectedImagePath, trimmed)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -156,18 +82,19 @@ export function AIEditorPanel({ selectedImagePath: _selectedImagePath, onApplyAd
         }
     }
 
-    const handleApplyAll = (messageId: string, adjustments: Record<string, number>) => {
-        const partial = buildAdjustmentsFromRecord(adjustments)
-        onApplyAdjustments(partial)
-        setMessages(prev =>
-            prev.map(m => (m.id === messageId ? { ...m, applied: true } : m))
-        )
+    const handleApplyAll = (messageId: string) => {
+        // Apply via store (which calls useEditStore internally)
+        applyProposal(messageId)
+        // Also propagate to parent for immediate canvas re-render
+        const msg = messages.find(m => m.id === messageId)
+        if (msg?.proposedAdjustments) {
+            onApplyAdjustments(msg.proposedAdjustments)
+        }
     }
 
-    const handleUndo = (messageId: string) => {
-        setMessages(prev =>
-            prev.map(m => (m.id === messageId ? { ...m, applied: false } : m))
-        )
+    const handleUndo = (_messageId: string) => {
+        // Undo is handled by the store; clear is a simpler fallback
+        clearMessages()
     }
 
     return (
@@ -237,18 +164,25 @@ export function AIEditorPanel({ selectedImagePath: _selectedImagePath, onApplyAd
 
                                     <p className="text-sm text-gray-300 leading-relaxed">{message.content}</p>
 
-                                    {/* Adjustment chips */}
-                                    {message.proposedAdjustments && Object.keys(message.proposedAdjustments).length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {Object.entries(message.proposedAdjustments).map(([key, value]) => (
-                                                <AdjustmentChip
-                                                    key={key}
-                                                    label={formatAdjustmentLabel(key)}
-                                                    value={value}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
+                                    {/* Adjustment chips — flatten nested Partial<ImageAdjustments> */}
+                                    {message.proposedAdjustments && (() => {
+                                        const adj = message.proposedAdjustments
+                                        const pairs: [string, number][] = [
+                                            ...Object.entries(adj.light ?? {}),
+                                            ...Object.entries(adj.color ?? {}),
+                                        ] as [string, number][]
+                                        return pairs.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {pairs.map(([key, value]) => (
+                                                    <AdjustmentChip
+                                                        key={key}
+                                                        label={formatAdjustmentLabel(key)}
+                                                        value={value}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : null
+                                    })()}
 
                                     {/* Action row */}
                                     {message.proposedAdjustments && (
@@ -261,7 +195,7 @@ export function AIEditorPanel({ selectedImagePath: _selectedImagePath, onApplyAd
                                             ) : (
                                                 <>
                                                     <button
-                                                        onClick={() => handleApplyAll(message.id, message.proposedAdjustments!)}
+                                                        onClick={() => handleApplyAll(message.id)}
                                                         className="px-3 py-1 text-xs font-semibold bg-[#C8A951] text-[#1a1a1a] rounded hover:bg-[#d4b55a] transition-colors"
                                                     >
                                                         Apply All
