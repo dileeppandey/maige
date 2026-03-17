@@ -21,9 +21,6 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/
 
-# Legacy Electron build output
-dist-electron/
-
 # Rust build artifacts
 rust/*/target/
 *.rs.bk

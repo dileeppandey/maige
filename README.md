@@ -39,7 +39,7 @@ A professional desktop image editor built with Tauri 2 and native Rust image pro
 ### Installation
 
 ```bash
-git clone https://github.com/niceperson/maige.git
+git clone https://github.com/dileeppandey/maige.git
 cd maige
 npm install
 ```
