@@ -8,6 +8,7 @@ interface UIState {
     compareMode: boolean
     beforeAfter: boolean
     centerPanelMode: 'grid' | 'editor'
+    showAIConfig: boolean
 
     // Actions
     togglePanel: (panel: 'library' | 'develop' | 'filmstrip') => void
@@ -19,6 +20,7 @@ interface UIState {
     toggleCompareMode: () => void
     toggleBeforeAfter: () => void
     setCenterPanelMode: (mode: 'grid' | 'editor') => void
+    toggleAIConfig: () => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -29,6 +31,7 @@ export const useUIStore = create<UIState>((set) => ({
     compareMode: false,
     beforeAfter: false,
     centerPanelMode: 'grid',
+    showAIConfig: false,
 
     togglePanel: (panel) => set((state) => {
         switch (panel) {
@@ -54,5 +57,7 @@ export const useUIStore = create<UIState>((set) => ({
     toggleBeforeAfter: () => set((state) => ({ beforeAfter: !state.beforeAfter })),
 
     setCenterPanelMode: (mode) => set({ centerPanelMode: mode }),
+
+    toggleAIConfig: () => set((state) => ({ showAIConfig: !state.showAIConfig })),
 }))
 

@@ -1,4 +1,4 @@
-import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats, AlbumRecord, ImageRecord } from '../shared/types';
+import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats, AlbumRecord, ImageRecord, AIConfig } from '../shared/types';
 
 export { };
 
@@ -70,6 +70,15 @@ declare global {
 
             // Menu actions
             onMenuAction: (callback: (action: string, data?: unknown) => void) => () => void;
+
+            // AI operations
+            readImageAsBase64: (filePath: string) => Promise<string>;
+            saveAIConfig: (config: AIConfig) => Promise<void>;
+            loadAIConfig: () => Promise<AIConfig | null>;
+            getAPIKey: (provider: string) => Promise<string>;
+            saveAPIKey: (provider: string, key: string) => Promise<void>;
+            markImageAIEdited: (imageId: number) => Promise<void>;
+            getAIEnhancedImages: () => Promise<LibraryImage[]>;
         };
     }
 }

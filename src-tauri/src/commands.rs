@@ -401,3 +401,60 @@ pub async fn load_presets(app: AppHandle) -> CmdResult<Vec<Preset>> {
         .await
         .map_err(|e| e.to_string())
 }
+
+// ============================================================================
+// AI Operations
+// ============================================================================
+
+/// Mark an image as AI-edited
+#[tauri::command]
+pub async fn mark_image_ai_edited(
+    app: AppHandle,
+    image_id: i64,
+) -> CmdResult<()> {
+    database::mark_image_ai_edited(&app, image_id).await
+}
+
+/// Get all AI-enhanced images
+#[tauri::command]
+pub async fn get_ai_enhanced_images(
+    app: AppHandle,
+) -> CmdResult<Vec<DbImage>> {
+    database::get_ai_enhanced_images(&app).await
+}
+
+/// Save AI config
+#[tauri::command]
+pub async fn save_ai_config(
+    app: AppHandle,
+    config: String,
+) -> CmdResult<()> {
+    database::save_ai_config(&app, &config).await
+}
+
+/// Load AI config
+#[tauri::command]
+pub async fn load_ai_config(
+    app: AppHandle,
+) -> CmdResult<Option<String>> {
+    database::load_ai_config(&app).await
+}
+
+/// Get API key for a provider
+#[tauri::command]
+pub async fn get_api_key(
+    app: AppHandle,
+    provider: String,
+) -> CmdResult<Option<String>> {
+    database::get_api_key(&app, &provider).await
+}
+
+/// Save API key for a provider
+#[tauri::command]
+pub async fn save_api_key(
+    app: AppHandle,
+    provider: String,
+    key: String,
+) -> CmdResult<()> {
+    database::save_api_key(&app, &provider, &key).await
+}
