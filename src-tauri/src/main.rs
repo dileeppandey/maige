@@ -173,6 +173,13 @@ fn main() {
             // Presets
             commands::save_presets,
             commands::load_presets,
+            // AI operations
+            commands::mark_image_ai_edited,
+            commands::get_ai_enhanced_images,
+            commands::save_ai_config,
+            commands::load_ai_config,
+            commands::get_api_key,
+            commands::save_api_key,
         ])
         .setup(|app| {
             let menu = build_menu(app)?;
