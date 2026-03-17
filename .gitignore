@@ -17,14 +17,12 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 
-# Electron build output
-dist-electron
-dist-app
-release
-
 # Tauri build output
 src-tauri/target/
 src-tauri/gen/
+
+# Legacy Electron build output
+dist-electron/
 
 # Rust build artifacts
 rust/*/target/
