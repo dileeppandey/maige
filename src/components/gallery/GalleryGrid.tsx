@@ -4,6 +4,7 @@ import { useLibraryStore } from '../../store/useLibraryStore'
 import { useUIStore } from '../../store/useUIStore'
 import { Check, Loader2 } from 'lucide-react'
 import type { FileInfo } from '../../../shared/types'
+import { assetUrl } from '../../utils/assetUrl'
 
 interface GalleryGridProps {
     files: FileInfo[]
@@ -21,7 +22,8 @@ export function GalleryGrid({ files, onSelectFile }: GalleryGridProps) {
         loadMore,
         hasMore,
         isSearching,
-        viewMode
+        viewMode,
+        imageCacheVersion
     } = useLibraryStore()
 
     const { setCenterPanelMode } = useUIStore()
@@ -78,7 +80,7 @@ export function GalleryGrid({ files, onSelectFile }: GalleryGridProps) {
                 `}
             >
                 <img
-                    src={`media://${file.path}`}
+                    src={assetUrl(file.path, imageCacheVersion)}
                     className="w-full h-full object-cover"
                     loading="lazy"
                     alt={file.name}

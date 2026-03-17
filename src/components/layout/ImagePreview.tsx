@@ -5,6 +5,7 @@ import { GalleryGrid } from '../gallery/GalleryGrid'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 import { useUIStore } from '../../store/useUIStore'
 import { useLibraryStore } from '../../store/useLibraryStore'
+import { assetUrl } from '../../utils/assetUrl'
 
 interface ImagePreviewProps {
     selectedFile: FileInfo | null
@@ -73,7 +74,7 @@ export function ImagePreview({
             </div>
             {selectedFile ? (
                 <ImageViewer
-                    src={`media://${selectedFile.path}?v=${imageCacheVersion}`}
+                    src={assetUrl(selectedFile.path, imageCacheVersion)}
                     adjustments={adjustments}
                     onHistogramChange={onHistogramChange}
                 />

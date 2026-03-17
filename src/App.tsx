@@ -53,8 +53,6 @@ function App() {
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
 
   // Local state for file management
-  const [currentPath, setCurrentPath] = React.useState<string | null>(null)
-  const [files, setFiles] = React.useState<FileInfo[]>([])
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | null>(null)
   const [personFiles, setPersonFiles] = React.useState<FileInfo[]>([])
@@ -179,8 +177,8 @@ function App() {
         similarity: viewMode === 'search' ? result.similarity : undefined,
       }))
     }
-    return files
-  }, [viewMode, searchResults, files, selectedPersonId, personFiles, selectedAlbumId, albumFiles, selectedCluster, clusterFiles])
+    return []
+  }, [viewMode, searchResults, selectedPersonId, personFiles, selectedAlbumId, albumFiles, selectedCluster, clusterFiles])
 
   // Sync selected file with edit store
   useEffect(() => {
@@ -193,22 +191,6 @@ function App() {
     window.addEventListener('showLibrary', handleShowLibrary)
     return () => window.removeEventListener('showLibrary', handleShowLibrary)
   }, [showAllPhotos])
-
-  const handleOpenFolder = async () => {
-    try {
-      const path = await window.electronAPI.selectFolder()
-      if (path) {
-        setCurrentPath(path)
-        const files = await window.electronAPI.readFolder(path)
-        setFiles(files)
-        if (files.length > 0) {
-          setSelectedFile(files[0])
-        }
-      }
-    } catch (error) {
-      console.error("Error opening folder:", error)
-    }
-  }
 
   // Get current adjustments for selected file
   const currentAdjustments = getAdjustments(selectedPath)
@@ -275,10 +257,9 @@ function App() {
       switch (action) {
         // File
         case 'openFolder':
-          if (typeof data === 'string') {
-            setCurrentPath(data)
-            window.electronAPI.readFolder(data).then(setFiles)
-          }
+          window.electronAPI.selectFolder().then(path => {
+            if (path) useLibraryStore.getState().importFolder(path)
+          })
           break
         case 'importImages':
           if (Array.isArray(data)) {
@@ -287,9 +268,8 @@ function App() {
           }
           break
         case 'closeFolder':
-          setCurrentPath(null)
-          setFiles([])
           setSelectedFile(null)
+          useLibraryStore.getState().showAllPhotos()
           break
 
         // Edit & Library
@@ -387,9 +367,6 @@ function App() {
             />
           ) : showLibraryPanel ? (
             <LibraryPanel
-              currentPath={currentPath}
-              files={files}
-              onOpenFolder={handleOpenFolder}
               onSelectPerson={handleSelectPerson}
               onClearPerson={() => {
                 setSelectedPersonId(null)

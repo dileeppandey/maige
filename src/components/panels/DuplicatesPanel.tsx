@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Copy, Trash2, Check, Loader2, ArrowLeft } from 'lucide-react';
 import type { DuplicateGroup, LibraryImage } from '../../../shared/types';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { assetUrl } from '../../utils/assetUrl';
 
 interface DuplicatesPanelProps {
     onSelectImage?: (path: string) => void;
@@ -150,7 +151,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
                                                 onClick={() => toggleSelection(groupIndex, image.id)}
                                             >
                                                 <img
-                                                    src={`media://${encodeURIComponent(image.file_path)}`}
+                                                    src={assetUrl(image.file_path)}
                                                     alt={image.file_path.split('/').pop()}
                                                     className="w-full h-full object-cover"
                                                     onDoubleClick={(e) => {

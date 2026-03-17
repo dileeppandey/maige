@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Folder, Image, Calendar, MapPin, Camera, FileText, Info, Tag, Hash, Aperture, Zap, Palette } from 'lucide-react';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { assetUrl } from '../../utils/assetUrl';
 
 interface ImageDetails {
     id: number;
@@ -163,7 +164,7 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
                         {currentAlbum.cover_path && (
                             <div className="w-full h-24 rounded-lg overflow-hidden mb-3">
                                 <img
-                                    src={`media://${encodeURIComponent(currentAlbum.cover_path)}`}
+                                    src={assetUrl(currentAlbum.cover_path)}
                                     className="w-full h-full object-cover"
                                 />
                             </div>

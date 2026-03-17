@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
-import type { FileInfo, AlbumRecord, PersonRecord } from '../../../shared/types'
-import { FolderOpen, Images, Copy, Loader2, Search, Tag, X, Folder, Plus, MoreHorizontal, Trash2, ImagePlus, Pencil } from 'lucide-react'
+import type { AlbumRecord, PersonRecord } from '../../../shared/types'
+import { FolderInput, Images, Copy, Loader2, Search, Tag, X, Folder, Plus, MoreHorizontal, Trash2, ImagePlus, Pencil } from 'lucide-react'
 import { useLibraryStore, setupLibraryProgressListener } from '../../store/useLibraryStore'
 import { EditAlbumModal } from '../EditAlbumModal'
+import { assetUrl } from '../../utils/assetUrl'
 
 // AlbumsSection Component
 function AlbumsSection() {
@@ -117,7 +118,7 @@ function AlbumsSection() {
                             <div className="w-6 h-6 rounded bg-gray-700 overflow-hidden flex-shrink-0">
                                 {album.cover_path ? (
                                     <img
-                                        src={`media://${encodeURIComponent(album.cover_path)}`}
+                                        src={assetUrl(album.cover_path)}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
@@ -274,14 +275,11 @@ function PeopleAlbumsSection({ onSelectPerson }: { onSelectPerson: (personId: nu
 }
 
 interface LibraryPanelProps {
-    currentPath: string | null
-    files: FileInfo[]
-    onOpenFolder: () => void
     onSelectPerson?: (personId: number) => void
     onClearPerson?: () => void
 }
 
-export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson, onClearPerson }: LibraryPanelProps) {
+export function LibraryPanel({ onSelectPerson, onClearPerson }: LibraryPanelProps) {
     const {
         images,
         stats,
@@ -311,8 +309,9 @@ export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson,
         const cleanup = setupLibraryProgressListener()
         loadStats()
         loadTags()
+        showAllPhotos()
         return cleanup
-    }, [loadStats, loadTags])
+    }, [loadStats, loadTags, showAllPhotos])
 
     // Handle import folder action
     const handleImportFolder = async () => {
@@ -430,30 +429,10 @@ export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson,
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-                {/* Folders Section */}
+                {/* Collections Section */}
                 <div className="p-2">
                     <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                        <span>Folders</span>
-                        <button onClick={onOpenFolder} className="hover:text-white" title="Open Folder">
-                            <FolderOpen size={14} />
-                        </button>
-                    </div>
-
-                    {currentPath ? (
-                        <div className="px-2 py-1 text-sm bg-[#333333] rounded text-gray-200 truncate" title={currentPath}>
-                            {currentPath.split(/[/\\]/).pop()}
-                        </div>
-                    ) : (
-                        <div className="px-4 py-8 text-center text-xs text-gray-500">
-                            No folder open
-                        </div>
-                    )}
-                </div>
-
-                {/* Smart Collections Section */}
-                <div className="mt-4 px-2">
-                    <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                        <span>Smart Collections</span>
+                        <span>Collections</span>
                         <button
                             onClick={handleImportFolder}
                             className="hover:text-white disabled:opacity-50"
@@ -463,7 +442,7 @@ export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson,
                             {isImporting ? (
                                 <Loader2 size={14} className="animate-spin" />
                             ) : (
-                                <FolderOpen size={14} />
+                                <FolderInput size={14} />
                             )}
                         </button>
                     </div>
@@ -576,15 +555,6 @@ export function LibraryPanel({ currentPath, files, onOpenFolder, onSelectPerson,
                     </div>
                 )}
 
-                {/* Current Folder Stats */}
-                <div className="mt-4 px-2">
-                    <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                        <span>Current Folder</span>
-                    </div>
-                    <div className="text-xs px-2 text-gray-500">
-                        {files.length} images in view
-                    </div>
-                </div>
             </div>
         </div>
     )

@@ -12,8 +12,8 @@ interface LibraryState {
     // Selection state for bulk operations
     selectedImageIds: Set<number>;
 
-    // View mode: 'folder' = current folder, 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups, 'album' = album view, 'cluster' = cluster faces view
-    viewMode: 'folder' | 'library' | 'search' | 'tag' | 'people' | 'duplicates' | 'album' | 'cluster';
+    // View mode: 'library' = all photos, 'search' = search results, 'tag' = tag filter, 'people' = people panel, 'duplicates' = duplicate groups, 'album' = album view, 'cluster' = cluster faces view
+    viewMode: 'library' | 'search' | 'tag' | 'people' | 'duplicates' | 'album' | 'cluster';
     selectedAlbumId: number | null;
     selectedCluster: FaceCluster | null;
 
@@ -88,7 +88,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     tags: [],
     albums: [],
     selectedImageIds: new Set(),
-    viewMode: 'folder',
+    viewMode: 'library',
     selectedAlbumId: null,
     selectedCluster: null,
     addingToAlbumId: null,
@@ -265,10 +265,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             await get().showAllPhotos(true);
         } else if (viewMode === 'tag' && searchQuery) {
             await get().filterByTag(searchQuery, true);
-        } else if (viewMode === 'folder') {
-            await get().loadImages(true);
         }
-        // Others (search, album, people) don't have pagination implemented yet or are smaller
     },
 
     // Show people panel

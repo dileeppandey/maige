@@ -2,6 +2,7 @@ import type { FileInfo } from '../../../shared/types'
 import { useLibraryStore } from '../../store/useLibraryStore'
 import { Check, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { assetUrl } from '../../utils/assetUrl'
 
 interface FilmstripProps {
     files: FileInfo[]
@@ -20,6 +21,7 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
         selectedAlbumId,
         albums,
         startAddingToAlbum,
+        imageCacheVersion,
         addingToAlbumId,
         loadMore,
         hasMore,
@@ -159,7 +161,7 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                             `}
                         >
                             <img
-                                src={`media://${file.path}`}
+                                src={assetUrl(file.path, imageCacheVersion)}
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                             />

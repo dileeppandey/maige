@@ -108,15 +108,26 @@ export function useCanvasProcessor({
     }, [adjustments, isShowingOriginal])
 
     // Initial render when loading completes
+    // Use requestAnimationFrame to ensure the canvas DOM element is available
+    // (it's conditionally rendered based on isLoading)
     useEffect(() => {
-        const processor = processorRef.current
-        const canvas = canvasRef.current
+        if (isLoading) return
 
-        if (!isLoading && processor && processor.isLoaded() && canvas) {
+        const processor = processorRef.current
+        if (!processor || !processor.isLoaded()) return
+
+        const renderToCanvas = () => {
+            const canvas = canvasRef.current
+            if (!canvas) return
             processor.processToCanvas(adjustments, canvas)
             const hist = processor.generateHistogram(adjustments)
             setHistogram(hist)
         }
+
+        // Canvas may not be in DOM yet since it's conditionally rendered on !isLoading.
+        // Wait one frame for React to commit the DOM update.
+        const frameId = requestAnimationFrame(renderToCanvas)
+        return () => cancelAnimationFrame(frameId)
     }, [isLoading, adjustments])
 
     // Show original (unprocessed) image

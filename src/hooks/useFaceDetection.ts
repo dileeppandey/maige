@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { detectFacesFromUrl, preloadFaceDetector } from '../processing/faceDetector';
+import { assetUrl } from '../utils/assetUrl';
 
 interface FaceDetectionStatus {
     isProcessing: boolean;
@@ -53,8 +54,8 @@ export function useFaceDetection() {
                 }));
 
                 try {
-                    // Convert file path to media:// URL for browser loading
-                    const mediaUrl = `media://${encodeURIComponent(filePath)}`;
+                    // Convert file path to asset URL for browser loading
+                    const mediaUrl = assetUrl(filePath);
 
                     // Detect faces using MediaPipe
                     const detections = await detectFacesFromUrl(mediaUrl);

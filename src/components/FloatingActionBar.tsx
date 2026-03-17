@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, FolderPlus, Tag, Trash2, Check, Plus, Loader2 } from 'lucide-react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import type { AlbumRecord } from '../../shared/types';
+import { assetUrl } from '../utils/assetUrl';
 
 export function FloatingActionBar() {
     const {
@@ -126,7 +127,7 @@ export function FloatingActionBar() {
                                             <div className="w-8 h-8 rounded bg-gray-700 overflow-hidden flex-shrink-0">
                                                 {album.cover_path ? (
                                                     <img
-                                                        src={`media://${encodeURIComponent(album.cover_path)}`}
+                                                        src={assetUrl(album.cover_path)}
                                                         className="w-full h-full object-cover"
                                                     />
                                                 ) : (
