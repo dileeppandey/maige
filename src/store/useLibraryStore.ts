@@ -109,7 +109,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             if (loadMore && !currentHasMore) return;
 
             const offset = loadMore ? images.length : 0;
-            const newImages = await window.electronAPI.getLibraryImages({ limit: pageSize, offset });
+            const newImages = await window.api.getLibraryImages({ limit: pageSize, offset });
 
             set((state) => ({
                 images: loadMore ? [...state.images, ...newImages] : newImages,
@@ -123,7 +123,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Load duplicate groups
     loadDuplicates: async () => {
         try {
-            const duplicateGroups = await window.electronAPI.getDuplicates();
+            const duplicateGroups = await window.api.getDuplicates();
             set({ duplicateGroups });
         } catch (error) {
             console.error('Failed to load duplicates:', error);
@@ -133,7 +133,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Load library statistics
     loadStats: async () => {
         try {
-            const stats = await window.electronAPI.getStats();
+            const stats = await window.api.getStats();
             set({ stats });
         } catch (error) {
             console.error('Failed to load stats:', error);
@@ -143,7 +143,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Load all tags
     loadTags: async () => {
         try {
-            const tags = await window.electronAPI.getTags();
+            const tags = await window.api.getTags();
             set({ tags });
         } catch (error) {
             console.error('Failed to load tags:', error);
@@ -155,7 +155,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         set({ isImporting: true, importProgress: null });
 
         try {
-            const result = await window.electronAPI.importFolder(path);
+            const result = await window.api.importFolder(path);
 
             if (result.success) {
                 // Refresh data after import
@@ -188,7 +188,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         set({ searchQuery: query, isSearching: true, viewMode: 'search' });
 
         try {
-            const results = await window.electronAPI.search(query);
+            const results = await window.api.search(query);
             set({ searchResults: results, isSearching: false });
         } catch (error) {
             console.error('Search failed:', error);
@@ -210,7 +210,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
         try {
             const offset = loadMore ? searchResults.length : 0;
-            const images = await window.electronAPI.getImagesByTag(tagName, { limit: pageSize, offset });
+            const images = await window.api.getImagesByTag(tagName, { limit: pageSize, offset });
 
             // Convert LibraryImage[] to SearchResult[] format
             const newResults = images.map(img => ({
@@ -238,7 +238,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             if (loadMore && !currentHasMore) return;
 
             const offset = loadMore ? searchResults.length : 0;
-            const images = await window.electronAPI.getLibraryImages({ limit: pageSize, offset });
+            const images = await window.api.getLibraryImages({ limit: pageSize, offset });
 
             const newResults = images.map(img => ({
                 id: img.id,
@@ -301,7 +301,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Load albums
     loadAlbums: async () => {
         try {
-            const albums = await window.electronAPI.getAlbums();
+            const albums = await window.api.getAlbums();
             set({ albums });
         } catch (error) {
             console.error('Failed to load albums:', error);
@@ -393,7 +393,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Album CRUD actions
     createAlbum: async (name: string, description?: string) => {
         try {
-            const album = await window.electronAPI.createAlbum(name, description);
+            const album = await window.api.createAlbum(name, description);
             if (album) {
                 await get().loadAlbums();
             }
@@ -409,7 +409,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         if (selectedImageIds.size === 0) return;
 
         try {
-            await window.electronAPI.addPhotosToAlbum(albumId, Array.from(selectedImageIds));
+            await window.api.addPhotosToAlbum(albumId, Array.from(selectedImageIds));
             await get().loadAlbums();
             set({ selectedImageIds: new Set() });
         } catch (error) {
@@ -419,7 +419,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
     deleteAlbum: async (albumId: number) => {
         try {
-            await window.electronAPI.deleteAlbum(albumId);
+            await window.api.deleteAlbum(albumId);
             await get().loadAlbums();
             if (get().selectedAlbumId === albumId) {
                 set({ viewMode: 'library', selectedAlbumId: null });
@@ -433,7 +433,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     startAddingToAlbum: async (albumId: number) => {
         // First, fetch the images already in this album
         try {
-            const existingImages = await window.electronAPI.getAlbumImages(albumId);
+            const existingImages = await window.api.getAlbumImages(albumId);
             const existingIds = new Set(existingImages.map(img => img.id));
 
             set({
@@ -465,7 +465,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         }
 
         try {
-            await window.electronAPI.addPhotosToAlbum(addingToAlbumId, Array.from(selectedImageIds));
+            await window.api.addPhotosToAlbum(addingToAlbumId, Array.from(selectedImageIds));
             await get().loadAlbums();
             // Return to viewing the album
             set({
@@ -500,7 +500,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
 // Setup progress listener (call once on app init)
 export function setupLibraryProgressListener() {
-    return window.electronAPI.onImportProgress((progress) => {
+    return window.api.onImportProgress((progress) => {
         useLibraryStore.getState().setImportProgress(progress as ImportProgress);
     });
 }

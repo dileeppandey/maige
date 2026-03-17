@@ -1,6 +1,4 @@
 //! Tauri command handlers
-//!
-//! These commands replace the Electron IPC handlers
 
 use crate::database::{self, Album, DbImage, FaceDetectionInput, FaceRecord, FaceStats, ImageTag, Person, Preset, TagInfo};
 use crate::image_processor::{self, ImageMetadata, Histogram, Adjustments};

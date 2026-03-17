@@ -52,7 +52,7 @@ export function ExportModal({
                 const extension = format === 'jpeg' ? 'jpg' : 'png'
                 const defaultPath = `${baseName}_edited.${extension}`
 
-                outputPath = await window.electronAPI.showExportSaveDialog(defaultPath, format)
+                outputPath = await window.api.showExportSaveDialog(defaultPath, format)
             }
 
             if (!outputPath) {
@@ -61,7 +61,7 @@ export function ExportModal({
             }
 
             // Export image
-            const result = await window.electronAPI.exportImage({
+            const result = await window.api.exportImage({
                 dataUrl,
                 outputPath,
                 format,

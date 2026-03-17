@@ -67,7 +67,7 @@ maige/
 │   ├── store/                  # Zustand stores (edit, library, UI)
 │   ├── processing/             # Client-side image processing (canvas, face detection)
 │   ├── hooks/                  # Custom hooks (canvas processor, face detection)
-│   ├── bridge.ts               # Tauri API bridge (window.electronAPI → invoke())
+│   ├── bridge.ts               # Tauri API bridge (window.api → invoke())
 │   └── utils/                  # Utilities (asset URL conversion)
 │
 ├── src-tauri/                  # Tauri backend (Rust)

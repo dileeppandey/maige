@@ -37,9 +37,9 @@ cargo test                           # Run Rust tests (from either Rust dir)
 
 ### Frontend ↔ Backend Bridge
 
-The frontend communicates with Tauri through `src/bridge.ts`, which provides `window.electronAPI` and delegates every call to Tauri's `invoke()`.
+The frontend communicates with Tauri through `src/bridge.ts`, which provides `window.api` and delegates every call to Tauri's `invoke()`.
 
-- **Call path:** `window.electronAPI` methods → `src/bridge.ts` → Tauri `invoke()` → `src-tauri/src/commands.rs`
+- **Call path:** `window.api` methods → `src/bridge.ts` → Tauri `invoke()` → `src-tauri/src/commands.rs`
 - **Image loading:** Local files are served via Tauri's asset protocol. Use `assetUrl()` from `src/utils/assetUrl.ts` (wraps `convertFileSrc`) — never use raw file paths or `media://`.
 - **Serialization:** Rust structs serialize to **snake_case** JSON (no `rename_all`). Frontend shared types in `shared/types.ts` use snake_case to match.
 

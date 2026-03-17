@@ -1,7 +1,7 @@
 /**
  * Tauri API Bridge
  *
- * Provides window.electronAPI backed by Tauri commands,
+ * Provides window.api backed by Tauri commands,
  * allowing the frontend to call into the Tauri backend uniformly.
  */
 
@@ -41,7 +41,7 @@ interface Stats {
     duplicateGroups: number;
 }
 
-const electronAPIImpl = {
+const apiImpl = {
     // ================== Folder Operations ==================
 
     selectFolder: async (): Promise<string | null> => {
@@ -444,6 +444,6 @@ const electronAPIImpl = {
 };
 
 // Assign to window
-(window as unknown as { electronAPI: typeof electronAPIImpl }).electronAPI = electronAPIImpl;
+(window as unknown as { api: typeof apiImpl }).api = apiImpl;
 
 export { };

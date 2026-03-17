@@ -1,6 +1,6 @@
 /**
  * Face Thumbnail Component
- * Fetches and displays a cropped face thumbnail from the main process
+ * Fetches and displays a cropped face thumbnail from the backend
  */
 
 import { useEffect, useState } from 'react';
@@ -35,7 +35,7 @@ export function FaceThumbnail({
             setError(false);
 
             try {
-                const url = await window.electronAPI.getFaceThumbnail(faceId);
+                const url = await window.api.getFaceThumbnail(faceId);
                 if (!cancelled) {
                     setThumbnailUrl(url);
                     setIsLoading(false);

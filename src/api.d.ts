@@ -4,7 +4,7 @@ export { };
 
 declare global {
     interface Window {
-        electronAPI: {
+        api: {
             selectFolder: () => Promise<string | null>;
             readFolder: (path: string) => Promise<FileInfo[]>;
 

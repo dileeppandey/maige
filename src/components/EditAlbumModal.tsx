@@ -34,7 +34,7 @@ export function EditAlbumModal({ album, onClose }: EditAlbumModalProps) {
 
         setIsSaving(true);
         try {
-            await window.electronAPI.updateAlbum(album.id, {
+            await window.api.updateAlbum(album.id, {
                 name: name.trim(),
                 description: description.trim() || undefined,
             });

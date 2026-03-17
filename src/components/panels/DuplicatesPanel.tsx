@@ -22,7 +22,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
     const loadDuplicates = useCallback(async () => {
         setIsLoading(true);
         try {
-            const groups = await window.electronAPI.getDuplicates();
+            const groups = await window.api.getDuplicates();
             setDuplicateGroups(groups);
         } catch (error) {
             console.error('Failed to load duplicates:', error);
@@ -66,7 +66,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
         if (!confirmDelete) return;
 
         try {
-            const result = await window.electronAPI.deleteImages(imageIdsToDelete, true);
+            const result = await window.api.deleteImages(imageIdsToDelete, true);
             if (result.success) {
                 console.log(`Deleted ${result.deletedFromDb} from DB, ${result.deletedFromDisk} from disk`);
                 setSelectedInGroup(prev => ({ ...prev, [groupIndex]: new Set() }));

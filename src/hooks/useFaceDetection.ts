@@ -1,7 +1,7 @@
 /**
  * Face Detection Hook
- * Listens for face detection requests from main process after import,
- * runs MediaPipe face detection, and sends results back.
+ * Listens for face detection requests after import,
+ * runs MediaPipe face detection, and saves results to the backend.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -34,7 +34,7 @@ export function useFaceDetection() {
         }
 
         // Listen for face detection requests from main process
-        const cleanup = window.electronAPI.onStartFaceDetection(async (data) => {
+        const cleanup = window.api.onStartFaceDetection(async (data) => {
             console.log('Face detection requested for', data.imagePaths.length, 'images');
 
             setStatus({
@@ -64,12 +64,12 @@ export function useFaceDetection() {
                         console.log(`Found ${detections.length} face(s) in ${fileName}`);
 
                         // Get image ID from database
-                        const images = await window.electronAPI.getLibraryImages();
+                        const images = await window.api.getLibraryImages();
                         const imageRecord = images.find(img => img.file_path === filePath);
 
                         if (imageRecord) {
                             // Send face detections to main process for storage
-                            const results = await window.electronAPI.saveFaceDetections(
+                            const results = await window.api.saveFaceDetections(
                                 imageRecord.id,
                                 filePath,
                                 detections

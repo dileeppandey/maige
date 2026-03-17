@@ -43,9 +43,9 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
         setIsLoading(true);
         try {
             const [peopleData, facesData, statsData] = await Promise.all([
-                window.electronAPI.getAllPeople(),
-                window.electronAPI.getUnidentifiedFaces(),
-                window.electronAPI.getFaceStats(),
+                window.api.getAllPeople(),
+                window.api.getUnidentifiedFaces(),
+                window.api.getFaceStats(),
             ]);
             setPeople(peopleData);
             setUnidentifiedFaces(facesData);
@@ -53,7 +53,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
 
             // Load hidden people if toggle is on
             if (showHidden) {
-                const hiddenData = await window.electronAPI.getHiddenPeople();
+                const hiddenData = await window.api.getHiddenPeople();
                 setHiddenPeople(hiddenData);
             }
         } catch (error) {
@@ -71,7 +71,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
     const handleCluster = async () => {
         setIsClustering(true);
         try {
-            const clusterData = await window.electronAPI.clusterFaces();
+            const clusterData = await window.api.clusterFaces();
             setClusters(clusterData);
         } catch (error) {
             console.error('Failed to cluster faces:', error);
@@ -85,7 +85,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
         if (!newPersonName.trim()) return;
 
         try {
-            await window.electronAPI.createPersonFromFace(faceId, newPersonName.trim());
+            await window.api.createPersonFromFace(faceId, newPersonName.trim());
             setNewPersonName('');
             setNamingFaceId(null);
             setClusters([]); // Clear clusters after naming
@@ -100,7 +100,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
         if (!newPersonName.trim()) return;
 
         try {
-            await window.electronAPI.createPersonFromCluster(faceIds, newPersonName.trim());
+            await window.api.createPersonFromCluster(faceIds, newPersonName.trim());
             setNewPersonName('');
             setNamingFaceId(null);
             setClusters([]); // Clear clusters after naming
@@ -136,7 +136,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
         if (!newPersonName.trim() || selectedFaces.size === 0) return;
 
         try {
-            await window.electronAPI.createPersonFromCluster(
+            await window.api.createPersonFromCluster(
                 Array.from(selectedFaces),
                 newPersonName.trim()
             );
@@ -160,7 +160,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
     // Hide a person
     const handleHidePerson = async (personId: number, hidden: boolean) => {
         try {
-            await window.electronAPI.setPersonHidden(personId, hidden);
+            await window.api.setPersonHidden(personId, hidden);
             await loadData();
         } catch (error) {
             console.error('Failed to hide person:', error);
@@ -180,7 +180,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             // Assign all selected faces to this person
             try {
                 for (const faceId of selectedFaces) {
-                    await window.electronAPI.assignFaceToPerson(faceId, personId);
+                    await window.api.assignFaceToPerson(faceId, personId);
                 }
                 clearSelection();
                 setClusters([]);
@@ -194,7 +194,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             if (cluster) {
                 try {
                     for (const faceId of cluster.faceIds) {
-                        await window.electronAPI.assignFaceToPerson(faceId, personId);
+                        await window.api.assignFaceToPerson(faceId, personId);
                     }
                     setNamingFaceId(null);
                     setNewPersonName('');

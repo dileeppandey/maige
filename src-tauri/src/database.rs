@@ -1,6 +1,4 @@
 //! Database module using rusqlite
-//!
-//! Replaces better-sqlite3 from the Electron version
 
 use rusqlite::{Connection, params, OptionalExtension};
 use serde::{Deserialize, Serialize};

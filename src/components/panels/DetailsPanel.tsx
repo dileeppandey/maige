@@ -60,7 +60,7 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
                 return;
             }
             try {
-                const details = await window.electronAPI.getImageByPath(selectedImagePath);
+                const details = await window.api.getImageByPath(selectedImagePath);
                 setImageDetails(details);
             } catch {
                 setImageDetails(null);

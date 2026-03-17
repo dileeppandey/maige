@@ -1,6 +1,6 @@
 //! NAPI-RS bindings for Node.js integration
 //!
-//! This module exposes the maige-core library to Node.js/Electron
+//! This module exposes the maige-core library to Node.js
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;

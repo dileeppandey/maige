@@ -55,7 +55,7 @@ function AlbumsSection() {
         try {
             const data = JSON.parse(e.dataTransfer.getData('application/json'))
             if (data && data.imageIds && Array.isArray(data.imageIds)) {
-                await window.electronAPI.addPhotosToAlbum(albumId, data.imageIds)
+                await window.api.addPhotosToAlbum(albumId, data.imageIds)
                 await loadAlbums()
             }
         } catch (error) {
@@ -215,7 +215,7 @@ function PeopleAlbumsSection({ onSelectPerson }: { onSelectPerson: (personId: nu
     const loadPeople = async () => {
         setIsLoading(true)
         try {
-            const allPeople = await window.electronAPI.getAllPeople()
+            const allPeople = await window.api.getAllPeople()
             // Only show named people
             setPeople(allPeople.filter(p => p.name && p.name.trim() !== ''))
         } catch (error) {
@@ -315,7 +315,7 @@ export function LibraryPanel({ onSelectPerson, onClearPerson }: LibraryPanelProp
 
     // Handle import folder action
     const handleImportFolder = async () => {
-        const path = await window.electronAPI.selectFolder()
+        const path = await window.api.selectFolder()
         if (path) {
             await importFolder(path)
         }

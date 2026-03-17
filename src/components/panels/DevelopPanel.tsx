@@ -50,7 +50,7 @@ export function DevelopPanel({
                 return
             }
             try {
-                const tags = await window.electronAPI.getImageTagsByPath(selectedImagePath)
+                const tags = await window.api.getImageTagsByPath(selectedImagePath)
                 setImageTags(tags)
             } catch {
                 setImageTags([])
