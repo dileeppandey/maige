@@ -50,8 +50,9 @@ export function Histogram({ histogramData }: HistogramProps) {
         const height = canvas.height
         const barWidth = width / 256
 
-        // Clear canvas
-        ctx.fillStyle = '#1a1a1a'
+        // Clear canvas - detect theme from DOM
+        const isDark = document.documentElement.classList.contains('dark')
+        ctx.fillStyle = isDark ? '#1a1a1a' : '#f3f4f6'
         ctx.fillRect(0, 0, width, height)
 
         // Draw luminance (white, behind)
@@ -95,14 +96,14 @@ export function Histogram({ histogramData }: HistogramProps) {
 
     if (!histogramData) {
         return (
-            <div className="h-32 bg-[#1a1a1a] rounded mb-6 border border-[#333333] flex items-center justify-center text-xs text-gray-600">
+            <div className="h-32 bg-gray-100 dark:bg-[#1a1a1a] rounded mb-6 border border-gray-200 dark:border-[#333333] flex items-center justify-center text-xs text-gray-600 dark:text-gray-600">
                 No image selected
             </div>
         )
     }
 
     return (
-        <div className="h-32 bg-[#1a1a1a] rounded mb-6 border border-[#333333] overflow-hidden">
+        <div className="h-32 bg-gray-100 dark:bg-[#1a1a1a] rounded mb-6 border border-gray-200 dark:border-[#333333] overflow-hidden">
             <canvas
                 ref={canvasRef}
                 width={256}

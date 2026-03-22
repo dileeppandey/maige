@@ -302,6 +302,95 @@ export class ImageProcessor {
     }
 
     /**
+     * Crop the original image data to the given normalized rect.
+     * This is destructive — replaces the original with the cropped version.
+     */
+    cropOriginal(rect: { x: number; y: number; w: number; h: number }): void {
+        if (!this.originalCtx || !this.originalCanvas) return
+
+        const sx = Math.round(rect.x * this.width)
+        const sy = Math.round(rect.y * this.height)
+        const sw = Math.round(rect.w * this.width)
+        const sh = Math.round(rect.h * this.height)
+
+        if (sw <= 0 || sh <= 0) return
+
+        const croppedData = this.originalCtx.getImageData(sx, sy, sw, sh)
+
+        this.width = sw
+        this.height = sh
+
+        this.originalCanvas = new OffscreenCanvas(sw, sh)
+        this.originalCtx = this.originalCanvas.getContext('2d')
+        if (this.originalCtx) {
+            this.originalCtx.putImageData(croppedData, 0, 0)
+        }
+
+        this.outputCanvas = new OffscreenCanvas(sw, sh)
+        this.outputCtx = this.outputCanvas.getContext('2d')
+    }
+
+    /**
+     * Rotate the original image by 90 degrees clockwise.
+     * Destructive — replaces original.
+     */
+    rotateOriginal90(): void {
+        if (!this.originalCtx || !this.originalCanvas) return
+
+        const imageData = this.originalCtx.getImageData(0, 0, this.width, this.height)
+        const newW = this.height
+        const newH = this.width
+
+        const newCanvas = new OffscreenCanvas(newW, newH)
+        const newCtx = newCanvas.getContext('2d')
+        if (!newCtx) return
+
+        // Draw rotated
+        newCtx.translate(newW, 0)
+        newCtx.rotate(Math.PI / 2)
+        // Put original data on a temp canvas to use drawImage
+        const tempCanvas = new OffscreenCanvas(this.width, this.height)
+        const tempCtx = tempCanvas.getContext('2d')
+        if (!tempCtx) return
+        tempCtx.putImageData(imageData, 0, 0)
+        newCtx.drawImage(tempCanvas, 0, 0)
+
+        this.width = newW
+        this.height = newH
+        this.originalCanvas = newCanvas
+        this.originalCtx = newCtx
+        this.outputCanvas = new OffscreenCanvas(newW, newH)
+        this.outputCtx = this.outputCanvas.getContext('2d')
+    }
+
+    /**
+     * Flip the original image horizontally.
+     * Destructive — replaces original.
+     */
+    flipOriginalH(): void {
+        if (!this.originalCtx || !this.originalCanvas) return
+
+        const imageData = this.originalCtx.getImageData(0, 0, this.width, this.height)
+        const newCanvas = new OffscreenCanvas(this.width, this.height)
+        const newCtx = newCanvas.getContext('2d')
+        if (!newCtx) return
+
+        const tempCanvas = new OffscreenCanvas(this.width, this.height)
+        const tempCtx = tempCanvas.getContext('2d')
+        if (!tempCtx) return
+        tempCtx.putImageData(imageData, 0, 0)
+
+        newCtx.translate(this.width, 0)
+        newCtx.scale(-1, 1)
+        newCtx.drawImage(tempCanvas, 0, 0)
+
+        this.originalCanvas = newCanvas
+        this.originalCtx = newCtx
+        this.outputCanvas = new OffscreenCanvas(this.width, this.height)
+        this.outputCtx = this.outputCanvas.getContext('2d')
+    }
+
+    /**
      * Get dimensions of loaded image
      */
     getDimensions(): { width: number; height: number } {

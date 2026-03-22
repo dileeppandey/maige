@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
-import type { AlbumRecord, PersonRecord } from '../../../shared/types'
-import { FolderInput, Images, Copy, Loader2, Search, Tag, X, Folder, Plus, MoreHorizontal, Trash2, ImagePlus, Pencil } from 'lucide-react'
+import type { AlbumRecord } from '../../../shared/types'
+import { Images, Clock, Star, Trash2, Folder, Plus, Loader2, MoreHorizontal, ImagePlus, Pencil, Sparkles } from 'lucide-react'
 import { useLibraryStore, setupLibraryProgressListener } from '../../store/useLibraryStore'
 import { EditAlbumModal } from '../EditAlbumModal'
 import { assetUrl } from '../../utils/assetUrl'
+import { NavItem, Button, Input } from '../../design-system'
 
-// AlbumsSection Component
-function AlbumsSection() {
+// CollectionsSection Component (renamed from AlbumsSection)
+function CollectionsSection() {
     const { albums, loadAlbums, createAlbum, deleteAlbum, showAlbum, viewMode, selectedAlbumId, startAddingToAlbum } = useLibraryStore()
     const [showNewInput, setShowNewInput] = useState(false)
     const [newName, setNewName] = useState('')
@@ -64,73 +65,69 @@ function AlbumsSection() {
     }
 
     return (
-        <div className="mt-4 px-2">
-            <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                <div className="flex items-center gap-1">
-                    <Folder size={12} />
-                    <span>Albums</span>
-                </div>
-                <button
+        <div className="mt-2 px-3">
+            <div className="flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1">
+                <span>Collections</span>
+                <Button
                     onClick={() => setShowNewInput(!showNewInput)}
-                    className="hover:text-white"
-                    title="Create Album"
-                >
-                    <Plus size={14} />
-                </button>
+                    variant="ghost"
+                    size="xs"
+                    iconOnly
+                    leftIcon={<Plus size={14} />}
+                    title="Create Collection"
+                />
             </div>
 
             {showNewInput && (
                 <div className="px-2 mb-2 flex gap-1">
-                    <input
+                    <Input
                         type="text"
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                        placeholder="Album name..."
-                        className="flex-1 px-2 py-1 text-xs bg-[#1a1a1a] border border-[#333333] rounded text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        placeholder="Collection name..."
                         autoFocus
                     />
-                    <button onClick={handleCreate} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs">
+                    <Button onClick={handleCreate} variant="primary" size="xs">
                         Add
-                    </button>
+                    </Button>
                 </div>
             )}
 
             {albums.length === 0 ? (
-                <div className="px-2 py-2 text-xs text-gray-500 text-center">
-                    No albums yet
+                <div className="px-2 py-2 text-xs text-text-faint text-center">
+                    No collections yet
                 </div>
             ) : (
                 <div className="space-y-0.5">
                     {albums.map((album) => (
                         <div
                             key={album.id}
-                            className={`group relative flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${dragOverAlbumId === album.id ? 'bg-blue-600/50 border border-blue-500' :
-                                viewMode === 'album' && selectedAlbumId === album.id
-                                    ? 'bg-green-600 text-white'
-                                    : 'text-gray-300 hover:bg-[#333333] border border-transparent'
-                                }`}
-                            onClick={() => showAlbum(album.id)}
+                            className={`group relative ${dragOverAlbumId === album.id ? 'bg-accent/30 border border-accent/50 rounded-md' : ''}`}
                             onDragOver={(e) => handleDragOver(e, album.id)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, album.id)}
                         >
-                            <div className="w-6 h-6 rounded bg-gray-700 overflow-hidden flex-shrink-0">
-                                {album.cover_path ? (
-                                    <img
-                                        src={assetUrl(album.cover_path)}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                        <Folder size={12} />
+                            <NavItem
+                                icon={
+                                    <div className="w-6 h-6 rounded overflow-hidden flex-shrink-0 bg-surface-card">
+                                        {album.cover_path ? (
+                                            <img
+                                                src={assetUrl(album.cover_path)}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-text-muted">
+                                                <Folder size={12} />
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                            <span className="flex-1 text-sm truncate">{album.name}</span>
-                            <span className={`text-xs ${viewMode === 'album' && selectedAlbumId === album.id ? 'text-green-200' : 'text-gray-500'}`}>
-                                {album.photo_count ?? 0}
-                            </span>
+                                }
+                                label={album.name}
+                                count={album.photo_count ?? 0}
+                                active={viewMode === 'album' && selectedAlbumId === album.id}
+                                onClick={() => showAlbum(album.id)}
+                            />
 
                             {/* Context menu trigger */}
                             <button
@@ -138,7 +135,7 @@ function AlbumsSection() {
                                     e.stopPropagation()
                                     setMenuOpenId(menuOpenId === album.id ? null : album.id)
                                 }}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-gray-600 rounded"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-surface-hover rounded transition-opacity"
                             >
                                 <MoreHorizontal size={14} />
                             </button>
@@ -147,7 +144,7 @@ function AlbumsSection() {
                             {menuOpenId === album.id && (
                                 <div
                                     ref={menuRef}
-                                    className="absolute right-0 top-full mt-1 z-10 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[140px]"
+                                    className="absolute right-0 top-full mt-1 z-10 bg-surface-card border border-border-base rounded-lg shadow-xl py-1 min-w-[140px]"
                                 >
                                     <button
                                         onClick={(e) => {
@@ -155,7 +152,7 @@ function AlbumsSection() {
                                             startAddingToAlbum(album.id)
                                             setMenuOpenId(null)
                                         }}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 w-full text-left"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface-hover w-full text-left"
                                     >
                                         <ImagePlus size={12} />
                                         Add Photos
@@ -166,22 +163,22 @@ function AlbumsSection() {
                                             setEditingAlbum(album)
                                             setMenuOpenId(null)
                                         }}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-gray-700 w-full text-left"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-primary hover:bg-surface-hover w-full text-left"
                                     >
                                         <Pencil size={12} />
-                                        Edit Album
+                                        Edit Collection
                                     </button>
-                                    <div className="border-t border-gray-700 my-1" />
+                                    <div className="border-t border-border-base my-1" />
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation()
                                             deleteAlbum(album.id)
                                             setMenuOpenId(null)
                                         }}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 w-full text-left"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-surface-hover w-full text-left"
                                     >
                                         <Trash2 size={12} />
-                                        Delete Album
+                                        Delete Collection
                                     </button>
                                 </div>
                             )}
@@ -201,108 +198,22 @@ function AlbumsSection() {
     )
 }
 
-// PeopleAlbumsSection - Shows named people as smart albums
-function PeopleAlbumsSection({ onSelectPerson }: { onSelectPerson: (personId: number) => void }) {
-    const { viewMode } = useLibraryStore()
-    const [people, setPeople] = useState<(PersonRecord & { face_count: number })[]>([])
-    const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
-
-    useEffect(() => {
-        loadPeople()
-    }, [])
-
-    const loadPeople = async () => {
-        setIsLoading(true)
-        try {
-            const allPeople = await window.api.getAllPeople()
-            // Only show named people
-            setPeople(allPeople.filter(p => p.name && p.name.trim() !== ''))
-        } catch (error) {
-            console.error('Failed to load people:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    const handleSelectPerson = (personId: number) => {
-        setSelectedPersonId(personId)
-        // Don't call showPeople() - we want to stay in Library view
-        onSelectPerson(personId)
-    }
-
-    if (people.length === 0 && !isLoading) return null
-
-    return (
-        <div className="mt-4 px-2">
-            <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-                <span>People Albums</span>
-                {isLoading && <Loader2 size={10} className="ml-2 animate-spin" />}
-            </div>
-
-            <div className="space-y-0.5">
-                {people.map((person) => (
-                    <button
-                        key={person.id}
-                        onClick={() => handleSelectPerson(person.id)}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-left transition-colors ${viewMode === 'people' && selectedPersonId === person.id
-                            ? 'bg-purple-600 text-white'
-                            : 'text-gray-300 hover:bg-[#333333]'
-                            }`}
-                    >
-                        {/* Avatar with initial */}
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${viewMode === 'people' && selectedPersonId === person.id
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-gray-600 text-gray-300'
-                            }`}>
-                            {person.name?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                        <span className="flex-1 text-sm truncate">{person.name}</span>
-                        <span className={`text-xs ${viewMode === 'people' && selectedPersonId === person.id
-                            ? 'text-purple-200'
-                            : 'text-gray-500'
-                            }`}>
-                            {person.face_count}
-                        </span>
-                    </button>
-                ))}
-            </div>
-        </div>
-    )
-}
-
 interface LibraryPanelProps {
     onSelectPerson?: (personId: number) => void
     onClearPerson?: () => void
 }
 
-export function LibraryPanel({ onSelectPerson, onClearPerson }: LibraryPanelProps) {
+export function LibraryPanel({ onSelectPerson: _onSelectPerson, onClearPerson }: LibraryPanelProps) {
     const {
-        images,
         stats,
         isImporting,
         importProgress,
-        tags,
         searchQuery,
-        searchResults,
-        isSearching,
         viewMode,
         loadStats,
         loadTags,
-        importFolder,
-        search,
-        clearSearch,
-        filterByTag,
         showAllPhotos,
-        showPeople,
-        showDuplicates,
     } = useLibraryStore()
-
-    const [localQuery, setLocalQuery] = useState('')
-    const [showAllTags, setShowAllTags] = useState(false)
 
     // Setup progress listener and load initial data
     useEffect(() => {
@@ -312,45 +223,6 @@ export function LibraryPanel({ onSelectPerson, onClearPerson }: LibraryPanelProp
         showAllPhotos()
         return cleanup
     }, [loadStats, loadTags, showAllPhotos])
-
-    // Handle import folder action
-    const handleImportFolder = async () => {
-        const path = await window.api.selectFolder()
-        if (path) {
-            await importFolder(path)
-        }
-    }
-
-    // Debounced search
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localQuery.trim() && localQuery !== searchQuery) {
-                search(localQuery)
-            } else if (!localQuery.trim() && searchQuery) {
-                clearSearch()
-            }
-        }, 500)
-
-        return () => clearTimeout(timer)
-    }, [localQuery, search, clearSearch, searchQuery])
-
-    // Handle search manual trigger (Enter key)
-    const handleSearch = () => {
-        if (localQuery.trim()) {
-            search(localQuery)
-        }
-    }
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleSearch()
-        }
-    }
-
-    const handleClearSearch = () => {
-        setLocalQuery('')
-        clearSearch()
-    }
 
     // Format progress message
     const getProgressMessage = () => {
@@ -373,190 +245,80 @@ export function LibraryPanel({ onSelectPerson, onClearPerson }: LibraryPanelProp
         }
     }
 
-    return (
-        <div className="h-full w-full flex flex-col bg-[#252525] border-r border-[#333333]">
-            {/* Header */}
-            <div className="h-12 flex items-center px-4 border-b border-[#333333]">
-                <span className="font-semibold text-sm text-gray-100 uppercase tracking-wide">Library</span>
-            </div>
+    // Format count with commas
+    const formatCount = (count: number) => {
+        return count.toLocaleString()
+    }
 
-            {/* Search Bar */}
-            <div className="p-2 border-b border-[#333333]">
-                <div className="relative">
-                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
-                    <input
-                        type="text"
-                        placeholder="Search images (e.g. 'sunset at beach')..."
-                        value={localQuery}
-                        onChange={(e) => setLocalQuery(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        className="w-full pl-8 pr-12 py-1.5 text-xs bg-[#1a1a1a] border border-[#333333] rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
-                    />
-                    <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-30" title="AI Search Active">
-                        <Images size={12} className="text-blue-400" />
-                    </div>
-                    {(localQuery || searchQuery) && (
-                        <button
-                            onClick={handleClearSearch}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-500 hover:text-white hover:bg-gray-600 rounded"
-                        >
-                            <X size={12} />
-                        </button>
-                    )}
-                </div>
-                {isSearching && (
-                    <div className="flex items-center gap-2 mt-1 text-xs text-blue-400 px-2">
-                        <Loader2 size={12} className="animate-spin" />
-                        <span>Searching...</span>
-                    </div>
-                )}
-                {!isSearching && searchQuery && searchResults.length === 0 && (viewMode === 'search' || viewMode === 'tag') && (
-                    <div className="mt-1 text-xs text-orange-400 px-2">
-                        No results found for "{searchQuery}"
-                    </div>
-                )}
-                {!isSearching && searchResults.length > 0 && (viewMode === 'search' || viewMode === 'tag') && (
-                    <div className="mt-1 text-xs text-green-400 px-2">
-                        {searchResults.length} results for "{searchQuery}"
-                    </div>
-                )}
-                {viewMode === 'library' && (
-                    <div className="mt-1 text-xs text-blue-400 px-2">
-                        Showing all {images.length} photos
-                    </div>
-                )}
+    const isAllPhotosActive = viewMode === 'library' && !searchQuery
+
+    return (
+        <div className="h-full w-full flex flex-col bg-surface-panel border-r border-border-subtle">
+            {/* Branding Header */}
+            <div className="h-12 flex items-center gap-2.5 px-4 border-b border-border-subtle">
+                <Sparkles size={18} className="text-accent" />
+                <span className="font-semibold text-sm text-text-primary tracking-wide">Maige</span>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-                {/* Collections Section */}
-                <div className="p-2">
-                    <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                        <span>Collections</span>
-                        <button
-                            onClick={handleImportFolder}
-                            className="hover:text-white disabled:opacity-50"
-                            title="Import Folder to Library"
-                            disabled={isImporting}
-                        >
-                            {isImporting ? (
-                                <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                                <FolderInput size={14} />
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Import Progress */}
-                    {isImporting && importProgress && (
-                        <div className="px-2 py-2 mb-2 text-xs bg-blue-500/20 border border-blue-500/30 rounded text-blue-300">
-                            <div className="flex items-center gap-2">
-                                <Loader2 size={12} className="animate-spin" />
-                                <span>{getProgressMessage()}</span>
+                {/* Import Progress */}
+                {isImporting && importProgress && (
+                    <div className="mx-3 mt-3 px-3 py-2 text-xs bg-accent/10 border border-accent/20 rounded-lg text-accent">
+                        <div className="flex items-center gap-2">
+                            <Loader2 size={12} className="animate-spin" />
+                            <span>{getProgressMessage()}</span>
+                        </div>
+                        {importProgress.total > 0 && (
+                            <div className="mt-1.5 h-1 bg-accent/20 rounded overflow-hidden">
+                                <div
+                                    className="h-full bg-accent transition-all duration-300"
+                                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                />
                             </div>
-                            {importProgress.total > 0 && (
-                                <div className="mt-1 h-1 bg-blue-500/30 rounded overflow-hidden">
-                                    <div
-                                        className="h-full bg-blue-500 transition-all duration-300"
-                                        style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* All Photos */}
-                    <button
-                        onClick={() => {
-                            setLocalQuery('')
-                            onClearPerson?.()
-                            showAllPhotos()
-                        }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'library' && !searchQuery
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-300 hover:bg-[#333333]'
-                            }`}
-                    >
-                        <Images size={14} className={viewMode === 'library' && !searchQuery ? 'text-white' : 'text-gray-500'} />
-                        <span>All Photos</span>
-                        <span className={`ml-auto text-xs ${viewMode === 'library' && !searchQuery ? 'text-blue-200' : 'text-gray-500'}`}>{stats.totalImages}</span>
-                    </button>
-
-                    {/* Duplicates */}
-                    {stats.duplicateGroups > 0 && (
-                        <button
-                            onClick={() => { onClearPerson?.(); showDuplicates() }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'duplicates'
-                                ? 'bg-orange-600 text-white'
-                                : 'text-gray-300 hover:bg-[#333333]'
-                                }`}
-                        >
-                            <Copy size={14} className={viewMode === 'duplicates' ? 'text-white' : 'text-orange-500'} />
-                            <span>Duplicates</span>
-                            <span className={`ml-auto text-xs ${viewMode === 'duplicates' ? 'text-orange-200' : 'text-orange-500'}`}>{stats.duplicateGroups}</span>
-                        </button>
-                    )}
-
-                    {/* People */}
-                    <button
-                        onClick={() => { onClearPerson?.(); showPeople() }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-left transition-colors ${viewMode === 'people'
-                            ? 'bg-purple-600 text-white'
-                            : 'text-gray-300 hover:bg-[#333333]'
-                            }`}
-                    >
-                        <svg className={`w-3.5 h-3.5 ${viewMode === 'people' ? 'text-white' : 'text-purple-400'}`} viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                        </svg>
-                        <span>People</span>
-                        <span className={`ml-auto text-xs ${viewMode === 'people' ? 'text-purple-200' : 'text-purple-400'}`}>New</span>
-                    </button>
-                </div>
-
-                {/* Albums Section */}
-                <AlbumsSection />
-
-                {/* People Albums Section */}
-                {onSelectPerson && <PeopleAlbumsSection onSelectPerson={onSelectPerson} />}
-
-                {/* Tags Section */}
-                {tags.length > 0 && (
-                    <div className="mt-4 px-2">
-                        <div className="flex items-center px-2 py-1 text-xs font-semibold text-gray-400 uppercase mb-2">
-                            <Tag size={12} className="mr-1" />
-                            <span>Tags</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 px-2">
-                            {(showAllTags ? tags : tags.slice(0, 10)).map((tag) => (
-                                <button
-                                    key={tag.tag}
-                                    onClick={() => {
-                                        setLocalQuery(tag.tag)
-                                        filterByTag(tag.tag)
-                                    }}
-                                    className={`px-2 py-0.5 text-xs rounded transition-colors ${viewMode === 'tag' && searchQuery === tag.tag
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-[#333333] hover:bg-[#444444] text-gray-300'
-                                        }`}
-                                >
-                                    {tag.tag}
-                                    <span className={`ml-1 ${viewMode === 'tag' && searchQuery === tag.tag ? 'text-blue-100' : 'text-gray-500'}`}>{tag.count}</span>
-                                </button>
-                            ))}
-                        </div>
-                        {tags.length > 10 && (
-                            <button
-                                onClick={() => setShowAllTags(!showAllTags)}
-                                className="px-2 mt-1 text-xs text-blue-400 hover:text-blue-300"
-                            >
-                                {showAllTags ? 'Show less' : `+${tags.length - 10} more tags`}
-                            </button>
                         )}
                     </div>
                 )}
 
+                {/* Nav Items */}
+                <div className="px-3 pt-3 space-y-0.5">
+                    {/* All Photos */}
+                    <NavItem
+                        icon={<Images size={16} />}
+                        label="All Photos"
+                        count={formatCount(stats.totalImages)}
+                        active={isAllPhotosActive}
+                        onClick={() => {
+                            onClearPerson?.()
+                            showAllPhotos()
+                        }}
+                    />
+
+                    {/* Recent */}
+                    <NavItem
+                        icon={<Clock size={16} />}
+                        label="Recent"
+                    />
+
+                    {/* Favorites */}
+                    <NavItem
+                        icon={<Star size={16} />}
+                        label="Favorites"
+                    />
+
+                    {/* Trash */}
+                    <NavItem
+                        icon={<Trash2 size={16} />}
+                        label="Trash"
+                    />
+                </div>
+
+                {/* Divider */}
+                <div className="mx-5 my-3 border-t border-border-subtle" />
+
+                {/* Collections Section (formerly Albums) */}
+                <CollectionsSection />
             </div>
         </div>
     )
 }
-

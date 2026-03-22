@@ -1,34 +1,41 @@
-import { useState } from 'react'
+import { useState, forwardRef } from 'react'
 import type { FileInfo, ImageAdjustments } from '../../../shared/types'
-import { Image as ImageIcon, Grid, ArrowLeft, Sparkles } from 'lucide-react'
-import { ImageViewer } from '../viewer/ImageViewer'
+import { Image as ImageIcon, Grid, ArrowLeft, Sparkles, Search, SlidersHorizontal, Calendar, Download } from 'lucide-react'
+import { ImageViewer, type ImageViewerHandle } from '../viewer/ImageViewer'
 import { GalleryGrid } from '../gallery/GalleryGrid'
 import { AIBatchEditPanel } from '../panels/AIBatchEditPanel'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 import { useUIStore } from '../../store/useUIStore'
 import { useLibraryStore } from '../../store/useLibraryStore'
 import { assetUrl } from '../../utils/assetUrl'
+import { Button, EmptyState } from '../../design-system'
+
+type FilterTab = 'all' | 'edited' | 'raw' | 'ai_enhanced'
 
 interface ImagePreviewProps {
     selectedFile: FileInfo | null
     adjustments?: ImageAdjustments
     onHistogramChange?: (data: { r: number[]; g: number[]; b: number[]; lum: number[] } | null) => void
+    onDimensionsChange?: (dims: { width: number; height: number }) => void
     files?: FileInfo[]
     onSelectFile?: (file: FileInfo) => void
     totalPhotos?: number
 }
 
-export function ImagePreview({
+export const ImagePreview = forwardRef<ImageViewerHandle, ImagePreviewProps>(function ImagePreview({
     selectedFile,
     adjustments = DEFAULT_IMAGE_ADJUSTMENTS,
     onHistogramChange,
+    onDimensionsChange,
     files = [],
     onSelectFile = () => { },
     totalPhotos = 0
-}: ImagePreviewProps) {
+}, ref) {
     const { centerPanelMode, setCenterPanelMode } = useUIStore()
     const { imageCacheVersion, selectedImageIds, images, searchResults } = useLibraryStore()
     const [showBatchPanel, setShowBatchPanel] = useState(false)
+    const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+    const [searchQuery, setSearchQuery] = useState('')
 
     const selectedCount = selectedImageIds.size
 
@@ -38,37 +45,101 @@ export function ImagePreview({
         return img ? { id, path: img.file_path } : null
     }).filter(Boolean) as { id: number; path: string }[]
 
-    // Show gallery grid when in grid mode and no file is being edited
+    const filterTabs: { id: FilterTab; label: string }[] = [
+        { id: 'all', label: 'All' },
+        { id: 'edited', label: 'Edited' },
+        { id: 'raw', label: 'RAW' },
+        { id: 'ai_enhanced', label: 'AI Enhanced' },
+    ]
+
+    const handleImport = async () => {
+        const path = await window.api.selectFolder()
+        if (path) {
+            useLibraryStore.getState().importFolder(path)
+        }
+    }
+
+    // Show gallery grid when in grid mode
     if (centerPanelMode === 'grid') {
         return (
-            <div className="flex-1 min-w-0 flex flex-col bg-[#1e1e1e] relative h-full overflow-hidden">
-                {/* Header with view toggle */}
-                <div className="h-10 flex items-center justify-between px-4 bg-[#252525] border-b border-[#333]">
-                    <span className="text-sm text-gray-400">
-                        {totalPhotos} photos
-                        {selectedCount > 0 && (
-                            <span className="ml-2 text-[#C8A951]">· {selectedCount} selected</span>
-                        )}
+            <div className="flex-1 min-w-0 flex flex-col bg-surface-panel relative h-full overflow-hidden">
+                {/* Top header bar */}
+                <div className="h-10 flex items-center gap-3 px-4 bg-surface-raised border-b border-border-base flex-shrink-0">
+                    <span className="text-sm font-semibold text-text-primary whitespace-nowrap">
+                        All Photos
                     </span>
-                    <div className="flex items-center gap-2">
-                        {selectedCount > 0 && (
-                            <button
-                                onClick={() => setShowBatchPanel(true)}
-                                className="flex items-center gap-1.5 px-2 py-1 text-xs text-[#C8A951] hover:text-white hover:bg-[#C8A951]/20 border border-[#C8A951]/40 rounded transition-colors"
-                            >
-                                <Sparkles className="w-3.5 h-3.5" />
-                                AI Batch Edit
-                            </button>
-                        )}
-                        <button
-                            onClick={() => setCenterPanelMode('editor')}
-                            className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-[#333] rounded transition-colors"
+                    <span className="text-xs text-text-secondary whitespace-nowrap">
+                        {totalPhotos.toLocaleString()} photos
+                    </span>
+
+                    {/* Search bar */}
+                    <div className="flex-1 max-w-xs mx-2">
+                        <div className="relative">
+                            <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search photos..."
+                                className="w-full pl-7 pr-3 py-1 text-xs bg-surface-input border border-border-base rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/50"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 ml-auto">
+                        <Button variant="ghost" size="sm" title="Filter">
+                            <SlidersHorizontal size={14} />
+                        </Button>
+                        <Button variant="ghost" size="sm" title="Date">
+                            <Calendar size={14} />
+                        </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleImport}
+                            leftIcon={<Download size={13} />}
+                            className="ml-1"
                         >
-                            <ImageIcon className="w-4 h-4" />
-                            Editor View
-                        </button>
+                            Import
+                        </Button>
                     </div>
                 </div>
+
+                {/* Filter tabs + selection info */}
+                <div className="h-9 flex items-center justify-between px-4 bg-surface-panel border-b border-border-subtle flex-shrink-0">
+                    <div className="flex items-center gap-0.5">
+                        {filterTabs.map(tab => (
+                            <Button
+                                key={tab.id}
+                                variant={activeFilter === tab.id ? 'primary' : 'secondary'}
+                                size="xs"
+                                onClick={() => setActiveFilter(tab.id)}
+                                leftIcon={tab.id === 'ai_enhanced' ? <Sparkles size={12} /> : undefined}
+                            >
+                                {tab.label}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {selectedCount > 0 && (
+                            <>
+                                <span className="text-xs text-text-secondary">
+                                    {selectedCount} selected
+                                </span>
+                                <Button
+                                    variant="secondary"
+                                    size="xs"
+                                    onClick={() => setShowBatchPanel(true)}
+                                    leftIcon={<Sparkles className="w-3.5 h-3.5" />}
+                                >
+                                    AI Batch Edit
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                </div>
+
                 <div className="flex-1 flex overflow-hidden">
                     <GalleryGrid files={files} onSelectFile={onSelectFile} />
                     {showBatchPanel && (
@@ -86,48 +157,51 @@ export function ImagePreview({
 
     // Editor mode
     return (
-        <div className="flex-1 min-w-0 flex flex-col bg-[#1e1e1e] relative h-full overflow-hidden">
-            {/* Header with back button */}
-            <div className="h-10 flex items-center justify-between px-4 bg-[#252525] border-b border-[#333]">
-                <button
+        <div className="flex-1 min-w-0 flex flex-col bg-surface-panel relative h-full overflow-hidden">
+            {/* Editor header bar */}
+            <div className="h-10 flex items-center justify-between px-4 bg-surface-raised border-b border-border-base">
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setCenterPanelMode('grid')}
-                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-[#333] rounded transition-colors"
+                    leftIcon={<ArrowLeft className="w-4 h-4" />}
                 >
-                    <ArrowLeft className="w-4 h-4" />
                     Back to Gallery
-                </button>
-                <span className="text-sm text-gray-400 truncate max-w-[200px]">
+                </Button>
+                <span className="text-sm text-text-secondary truncate max-w-[300px]">
                     {selectedFile?.name || 'No image selected'}
                 </span>
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setCenterPanelMode('grid')}
-                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-[#333] rounded transition-colors"
+                    leftIcon={<Grid className="w-4 h-4" />}
                 >
-                    <Grid className="w-4 h-4" />
                     Grid View
-                </button>
+                </Button>
             </div>
             {selectedFile ? (
                 <ImageViewer
+                    ref={ref}
                     src={assetUrl(selectedFile.path, imageCacheVersion)}
                     adjustments={adjustments}
                     onHistogramChange={onHistogramChange}
+                    onDimensionsChange={onDimensionsChange}
                 />
             ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-600">
-                    <div className="text-center">
-                        <ImageIcon size={48} className="mx-auto mb-2 opacity-20" />
-                        <p>No image selected</p>
-                        <button
+                <EmptyState
+                    icon={<ImageIcon size={48} />}
+                    title="No image selected"
+                    action={
+                        <Button
+                            variant="primary"
                             onClick={() => setCenterPanelMode('grid')}
-                            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm"
                         >
                             Browse Gallery
-                        </button>
-                    </div>
-                </div>
+                        </Button>
+                    }
+                />
             )}
         </div>
     )
-}
-
+})

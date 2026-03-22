@@ -1,6 +1,6 @@
-import { Droplet, Sun, Palette } from 'lucide-react'
 import { AdjustmentSlider } from './AdjustmentSlider'
 import type { ColorAdjustments } from '../../../shared/types'
+import { SectionHeader } from '../../design-system'
 
 interface ColorPanelProps {
     adjustments: ColorAdjustments
@@ -9,57 +9,37 @@ interface ColorPanelProps {
 
 export function ColorPanel({ adjustments, onAdjustmentChange }: ColorPanelProps) {
     return (
-        <div className="space-y-4">
-            {/* White Balance Section */}
-            <div>
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-gray-400">
-                    <Sun size={12} />
-                    <span>White Balance</span>
-                </div>
-                <div className="space-y-4 pl-2">
-                    <AdjustmentSlider
-                        label="Temp"
-                        value={adjustments.temperature}
-                        min={-100}
-                        max={100}
-                        onChange={(val) => onAdjustmentChange('temperature', val)}
-                        icon={<span className="text-[10px] select-none">TMP</span>}
-                    />
-                    <AdjustmentSlider
-                        label="Tint"
-                        value={adjustments.tint}
-                        min={-100}
-                        max={100}
-                        onChange={(val) => onAdjustmentChange('tint', val)}
-                        icon={<span className="text-[10px] select-none">TINT</span>}
-                    />
-                </div>
-            </div>
-
-            {/* Saturation Section */}
-            <div>
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-gray-400">
-                    <Palette size={12} />
-                    <span>Presence</span>
-                </div>
-                <div className="space-y-4 pl-2">
-                    <AdjustmentSlider
-                        label="Vibrance"
-                        value={adjustments.vibrance}
-                        min={-100}
-                        max={100}
-                        onChange={(val) => onAdjustmentChange('vibrance', val)}
-                        icon={<Droplet size={14} />}
-                    />
-                    <AdjustmentSlider
-                        label="Saturation"
-                        value={adjustments.saturation}
-                        min={-100}
-                        max={100}
-                        onChange={(val) => onAdjustmentChange('saturation', val)}
-                        icon={<Droplet size={14} />}
-                    />
-                </div>
+        <div>
+            <SectionHeader title="Color" className="mb-3" />
+            <div className="space-y-4">
+                <AdjustmentSlider
+                    label="Temperature"
+                    value={adjustments.temperature}
+                    onChange={(val) => onAdjustmentChange('temperature', val)}
+                    trackGradient="linear-gradient(to right, #3b82f6, #60a5fa, #a3a3a3, #fbbf24, #f97316, #ef4444)"
+                    valueColor={adjustments.temperature > 0 ? '#ef4444' : adjustments.temperature < 0 ? '#3b82f6' : undefined}
+                />
+                <AdjustmentSlider
+                    label="Tint"
+                    value={adjustments.tint}
+                    onChange={(val) => onAdjustmentChange('tint', val)}
+                    trackGradient="linear-gradient(to right, #22c55e, #a3a3a3, #d946ef)"
+                    valueColor={adjustments.tint > 0 ? '#d946ef' : adjustments.tint < 0 ? '#22c55e' : undefined}
+                />
+                <AdjustmentSlider
+                    label="Vibrance"
+                    value={adjustments.vibrance}
+                    onChange={(val) => onAdjustmentChange('vibrance', val)}
+                    trackGradient="linear-gradient(to right, #6b7280, #9ca3af, #C8A951, #e5b835)"
+                    valueColor="#C8A951"
+                />
+                <AdjustmentSlider
+                    label="Saturation"
+                    value={adjustments.saturation}
+                    onChange={(val) => onAdjustmentChange('saturation', val)}
+                    trackGradient="linear-gradient(to right, #6b7280, #3b82f6, #a855f7, #ef4444, #f97316)"
+                    valueColor="#3b82f6"
+                />
             </div>
         </div>
     )

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { assetUrl } from '../../utils/assetUrl';
+import { Checkbox, Button } from '../../design-system';
 
 interface AIBatchEditPanelProps {
     selectedImagePaths: string[];
@@ -66,16 +67,16 @@ export function AIBatchEditPanel({
     };
 
     return (
-        <div className="h-full w-[280px] flex flex-col bg-[#252525] border-l border-[#333333]">
+        <div className="h-full w-[280px] flex flex-col bg-surface-raised border-l border-border-base">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333] bg-[#1f1f1f]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-base bg-surface-panel">
                 <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-[#C8A951]" />
-                    <span className="text-sm font-semibold text-white tracking-wide">AI Batch Edit</span>
+                    <Sparkles size={16} className="text-accent" />
+                    <span className="text-sm font-semibold text-text-primary tracking-wide">AI Batch Edit</span>
                 </div>
                 <button
                     onClick={onClose}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="text-text-secondary hover:text-text-primary transition-colors"
                     aria-label="Close AI Batch Edit panel"
                 >
                     <X size={16} />
@@ -86,14 +87,14 @@ export function AIBatchEditPanel({
                 {/* Selected Photos Strip */}
                 {totalSelected > 0 && (
                     <div>
-                        <p className="text-xs text-gray-400 mb-2">
+                        <p className="text-xs text-text-secondary mb-2">
                             {totalSelected} photo{totalSelected !== 1 ? 's' : ''} selected
                         </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {visibleThumbnails.map((path, idx) => (
                                 <div
                                     key={idx}
-                                    className="w-10 h-10 rounded overflow-hidden bg-[#333333] flex-shrink-0"
+                                    className="w-10 h-10 rounded overflow-hidden bg-surface-card flex-shrink-0"
                                 >
                                     <img
                                         src={assetUrl(path)}
@@ -104,8 +105,8 @@ export function AIBatchEditPanel({
                                 </div>
                             ))}
                             {extraCount > 0 && (
-                                <div className="w-10 h-10 rounded bg-[#333333] flex items-center justify-center flex-shrink-0">
-                                    <span className="text-xs text-gray-300 font-medium">+{extraCount}</span>
+                                <div className="w-10 h-10 rounded bg-surface-card flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs text-text-primary font-medium">+{extraCount}</span>
                                 </div>
                             )}
                         </div>
@@ -114,7 +115,7 @@ export function AIBatchEditPanel({
 
                 {/* Batch Instructions */}
                 <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-300 uppercase tracking-wide">
+                    <label className="block text-xs font-medium text-text-primary uppercase tracking-wide">
                         Batch Instructions
                     </label>
                     <textarea
@@ -123,88 +124,60 @@ export function AIBatchEditPanel({
                         placeholder="Apply consistent color grading across all selected photos..."
                         rows={4}
                         disabled={isProcessing}
-                        className="w-full bg-[#1a1a1a] border border-[#444444] rounded text-sm text-gray-200
-                                   placeholder-gray-600 px-3 py-2 resize-none focus:outline-none
-                                   focus:border-[#C8A951]/60 transition-colors disabled:opacity-50"
+                        className="w-full bg-surface-input border border-border-base rounded text-sm text-text-primary
+                                   placeholder-text-faint px-3 py-2 resize-none focus:outline-none
+                                   focus:border-accent/60 focus:ring-1 focus:ring-accent/30 transition-colors disabled:opacity-50"
                     />
                 </div>
 
                 {/* Operations */}
                 <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-300 uppercase tracking-wide">
+                    <label className="block text-xs font-medium text-text-primary uppercase tracking-wide">
                         Operations
                     </label>
                     <div className="space-y-2.5">
                         {/* Color Grading */}
-                        <label className="flex items-center gap-2.5 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={operations.colorGrading}
-                                onChange={() => toggleOperation('colorGrading')}
-                                disabled={isProcessing}
-                                className="w-4 h-4 rounded border-[#444444] bg-[#1a1a1a] accent-[#C8A951]
-                                           cursor-pointer disabled:cursor-not-allowed"
-                            />
-                            <span className="text-sm text-gray-200 group-hover:text-white transition-colors">
-                                Color Grading
-                            </span>
-                        </label>
+                        <Checkbox
+                            checked={operations.colorGrading}
+                            onChange={() => toggleOperation('colorGrading')}
+                            disabled={isProcessing}
+                            label="Color Grading"
+                        />
 
                         {/* Auto Enhance */}
-                        <label className="flex items-center gap-2.5 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={operations.autoEnhance}
-                                onChange={() => toggleOperation('autoEnhance')}
-                                disabled={isProcessing}
-                                className="w-4 h-4 rounded border-[#444444] bg-[#1a1a1a] accent-[#C8A951]
-                                           cursor-pointer disabled:cursor-not-allowed"
-                            />
-                            <span className="text-sm text-gray-200 group-hover:text-white transition-colors">
-                                Auto Enhance
-                            </span>
-                        </label>
+                        <Checkbox
+                            checked={operations.autoEnhance}
+                            onChange={() => toggleOperation('autoEnhance')}
+                            disabled={isProcessing}
+                            label="Auto Enhance"
+                        />
 
                         {/* Noise Reduction (coming soon) */}
-                        <label className="flex items-center gap-2.5 cursor-not-allowed">
-                            <input
-                                type="checkbox"
-                                checked={operations.noiseReduction}
-                                onChange={() => toggleOperation('noiseReduction')}
-                                disabled={isProcessing}
-                                className="w-4 h-4 rounded border-[#444444] bg-[#1a1a1a] accent-[#C8A951]
-                                           cursor-not-allowed opacity-50"
-                            />
-                            <span className="text-sm text-gray-500">
-                                Noise Reduction{' '}
-                                <span className="text-gray-600 text-xs">(coming soon)</span>
-                            </span>
-                        </label>
+                        <Checkbox
+                            checked={operations.noiseReduction}
+                            onChange={() => toggleOperation('noiseReduction')}
+                            disabled={true}
+                            label="Noise Reduction"
+                            description="(coming soon)"
+                        />
 
                         {/* Smart Crop (coming soon) */}
-                        <label className="flex items-center gap-2.5 cursor-not-allowed">
-                            <input
-                                type="checkbox"
-                                checked={operations.smartCrop}
-                                onChange={() => toggleOperation('smartCrop')}
-                                disabled={isProcessing}
-                                className="w-4 h-4 rounded border-[#444444] bg-[#1a1a1a] accent-[#C8A951]
-                                           cursor-not-allowed opacity-50"
-                            />
-                            <span className="text-sm text-gray-500">
-                                Smart Crop{' '}
-                                <span className="text-gray-600 text-xs">(coming soon)</span>
-                            </span>
-                        </label>
+                        <Checkbox
+                            checked={operations.smartCrop}
+                            onChange={() => toggleOperation('smartCrop')}
+                            disabled={true}
+                            label="Smart Crop"
+                            description="(coming soon)"
+                        />
                     </div>
                 </div>
 
                 {/* Progress bar */}
                 {isProcessing && (
                     <div className="space-y-2">
-                        <div className="h-1.5 bg-[#333333] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-surface-card rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-[#C8A951] rounded-full transition-all duration-300"
+                                className="h-full bg-accent rounded-full transition-all duration-300"
                                 style={{
                                     width: progress.total > 0
                                         ? `${(progress.current / progress.total) * 100}%`
@@ -212,7 +185,7 @@ export function AIBatchEditPanel({
                                 }}
                             />
                         </div>
-                        <p className="text-xs text-gray-400 text-center">
+                        <p className="text-xs text-text-secondary text-center">
                             Processing {progress.current}/{progress.total} photos...
                         </p>
                     </div>
@@ -220,18 +193,17 @@ export function AIBatchEditPanel({
             </div>
 
             {/* Apply Button */}
-            <div className="px-4 py-4 border-t border-[#333333]">
-                <button
+            <div className="px-4 py-4 border-t border-border-base">
+                <Button
                     onClick={handleApply}
                     disabled={isProcessing || totalSelected === 0}
-                    className="w-full py-2.5 px-4 rounded font-semibold text-sm
-                               bg-[#C8A951] text-[#1a1a1a] hover:bg-[#d4b85e] transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    loading={isProcessing}
                 >
-                    {isProcessing
-                        ? 'Processing...'
-                        : `Apply to ${totalSelected} Photo${totalSelected !== 1 ? 's' : ''}`}
-                </button>
+                    {!isProcessing && `Apply to ${totalSelected} Photo${totalSelected !== 1 ? 's' : ''}`}
+                </Button>
             </div>
         </div>
     );

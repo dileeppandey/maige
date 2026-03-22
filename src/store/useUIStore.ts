@@ -1,5 +1,26 @@
 import { create } from 'zustand'
 
+export type ToolId = 'select' | 'crop' | 'brush' | 'eraser' | 'pen' | 'ai' | 'text' | 'layers'
+
+export interface CropRect {
+    x: number
+    y: number
+    w: number
+    h: number
+}
+
+export interface CropState {
+    active: boolean
+    rect: CropRect
+    aspectRatio: string
+}
+
+const DEFAULT_CROP_STATE: CropState = {
+    active: false,
+    rect: { x: 0, y: 0, w: 1, h: 1 },
+    aspectRatio: 'freeform',
+}
+
 interface UIState {
     showLibraryPanel: boolean
     showDevelopPanel: boolean
@@ -9,8 +30,13 @@ interface UIState {
     beforeAfter: boolean
     centerPanelMode: 'grid' | 'editor'
     showAIConfig: boolean
+    activeTool: ToolId
+    cropState: CropState
 
     // Actions
+    setActiveTool: (tool: ToolId) => void
+    setCropState: (update: Partial<CropState>) => void
+    resetCropState: () => void
     togglePanel: (panel: 'library' | 'develop' | 'filmstrip') => void
     setZoom: (level: number) => void
     zoomIn: () => void
@@ -32,6 +58,24 @@ export const useUIStore = create<UIState>((set) => ({
     beforeAfter: false,
     centerPanelMode: 'grid',
     showAIConfig: false,
+    activeTool: 'select',
+    cropState: { ...DEFAULT_CROP_STATE },
+
+    setActiveTool: (tool) => set((state) => ({
+        activeTool: tool,
+        // Activate crop overlay when crop tool selected, deactivate when switching away
+        cropState: tool === 'crop'
+            ? { ...state.cropState, active: true }
+            : state.cropState.active
+                ? { ...DEFAULT_CROP_STATE }
+                : state.cropState,
+    })),
+
+    setCropState: (update) => set((state) => ({
+        cropState: { ...state.cropState, ...update },
+    })),
+
+    resetCropState: () => set({ cropState: { ...DEFAULT_CROP_STATE } }),
 
     togglePanel: (panel) => set((state) => {
         switch (panel) {
@@ -56,7 +100,11 @@ export const useUIStore = create<UIState>((set) => ({
 
     toggleBeforeAfter: () => set((state) => ({ beforeAfter: !state.beforeAfter })),
 
-    setCenterPanelMode: (mode) => set({ centerPanelMode: mode }),
+    setCenterPanelMode: (mode) => set((state) => ({
+        centerPanelMode: mode,
+        // When switching to grid, activate select tool
+        activeTool: mode === 'grid' ? 'select' : state.activeTool,
+    })),
 
     toggleAIConfig: () => set((state) => ({ showAIConfig: !state.showAIConfig })),
 }))

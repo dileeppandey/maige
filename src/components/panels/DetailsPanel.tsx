@@ -149,13 +149,13 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
     const autoTags = parseAutoTags(imageDetails?.auto_tags);
 
     return (
-        <div className="h-full w-full flex flex-col bg-[#252525] overflow-y-auto">
+        <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-[#252525] overflow-y-auto">
             <div className="p-4 space-y-4">
 
                 {/* Album Section (only when viewing an album) */}
                 {currentAlbum && (
-                    <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase mb-3">
+                    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-400 uppercase mb-3">
                             <Folder size={12} />
                             <span>Album</span>
                         </div>
@@ -171,19 +171,19 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
                         )}
 
                         {/* Album Name */}
-                        <h3 className="text-lg font-semibold text-white mb-1">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                             {currentAlbum.name}
                         </h3>
 
                         {/* Album Description */}
                         {currentAlbum.description && (
-                            <p className="text-sm text-gray-400 mb-3">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 {currentAlbum.description}
                             </p>
                         )}
 
                         {/* Album Stats */}
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-500">
                             <span>{currentAlbum.photo_count ?? 0} photos</span>
                             <span>Created {new Date(currentAlbum.created_at).toLocaleDateString()}</span>
                         </div>
@@ -193,34 +193,34 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
                 {/* Image Details Section */}
                 {selectedImagePath && (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-400 uppercase">
                             <Image size={12} />
                             <span>Image Details</span>
                         </div>
 
                         {/* File Info */}
-                        <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                        <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                 <FileText size={12} />
                                 <span className="uppercase font-medium">File</span>
                             </div>
                             <div className="space-y-1.5 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Name</span>
-                                    <span className="text-gray-300 truncate max-w-[160px]" title={imageDetails?.file_name || selectedImagePath.split('/').pop()}>
+                                    <span className="text-gray-600 dark:text-gray-500">Name</span>
+                                    <span className="text-gray-800 dark:text-gray-300 truncate max-w-[160px]" title={imageDetails?.file_name || selectedImagePath.split('/').pop()}>
                                         {imageDetails?.file_name || selectedImagePath.split('/').pop()}
                                     </span>
                                 </div>
                                 {getFileType(selectedImagePath) && (
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500">Type</span>
-                                        <span className="text-gray-300">{getFileType(selectedImagePath)}</span>
+                                        <span className="text-gray-600 dark:text-gray-500">Type</span>
+                                        <span className="text-gray-800 dark:text-gray-300">{getFileType(selectedImagePath)}</span>
                                     </div>
                                 )}
                                 {formatFileSize(imageDetails?.file_size) && (
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500">Size</span>
-                                        <span className="text-gray-300">{formatFileSize(imageDetails?.file_size)}</span>
+                                        <span className="text-gray-600 dark:text-gray-500">Size</span>
+                                        <span className="text-gray-800 dark:text-gray-300">{formatFileSize(imageDetails?.file_size)}</span>
                                     </div>
                                 )}
                             </div>
@@ -228,30 +228,30 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Resolution Info */}
                         {(imageDetails?.width && imageDetails?.height) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Aperture size={12} />
                                     <span className="uppercase font-medium">Resolution</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500">Dimensions</span>
-                                        <span className="text-gray-300">
+                                        <span className="text-gray-600 dark:text-gray-500">Dimensions</span>
+                                        <span className="text-gray-800 dark:text-gray-300">
                                             {imageDetails.width} × {imageDetails.height} px
                                         </span>
                                     </div>
                                     {getMegapixels(imageDetails.width, imageDetails.height) && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Megapixels</span>
-                                            <span className="text-gray-300">
+                                            <span className="text-gray-600 dark:text-gray-500">Megapixels</span>
+                                            <span className="text-gray-800 dark:text-gray-300">
                                                 {getMegapixels(imageDetails.width, imageDetails.height)} MP
                                             </span>
                                         </div>
                                     )}
                                     {getAspectRatio(imageDetails.width, imageDetails.height) && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Aspect Ratio</span>
-                                            <span className="text-gray-300">
+                                            <span className="text-gray-600 dark:text-gray-500">Aspect Ratio</span>
+                                            <span className="text-gray-800 dark:text-gray-300">
                                                 {getAspectRatio(imageDetails.width, imageDetails.height)}
                                             </span>
                                         </div>
@@ -262,22 +262,22 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Date Info */}
                         {(imageDetails?.date_taken || imageDetails?.date_imported) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Calendar size={12} />
                                     <span className="uppercase font-medium">Dates</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     {imageDetails?.date_taken && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Taken</span>
-                                            <span className="text-gray-300">{formatDate(imageDetails.date_taken)}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Taken</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{formatDate(imageDetails.date_taken)}</span>
                                         </div>
                                     )}
                                     {imageDetails?.date_imported && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Imported</span>
-                                            <span className="text-gray-300">{formatDate(imageDetails.date_imported, false)}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Imported</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{formatDate(imageDetails.date_imported, false)}</span>
                                         </div>
                                     )}
                                 </div>
@@ -286,30 +286,30 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Camera Info */}
                         {(imageDetails?.camera_make || imageDetails?.camera_model || imageDetails?.focal_length || imageDetails?.aperture) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Camera size={12} />
                                     <span className="uppercase font-medium">Camera & Lens</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     {(imageDetails.camera_make || imageDetails.camera_model) && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Model</span>
-                                            <span className="text-gray-300 truncate max-w-[160px]">
+                                            <span className="text-gray-600 dark:text-gray-500">Model</span>
+                                            <span className="text-gray-800 dark:text-gray-300 truncate max-w-[160px]">
                                                 {[imageDetails.camera_make, imageDetails.camera_model].filter(Boolean).join(' ')}
                                             </span>
                                         </div>
                                     )}
                                     {imageDetails?.focal_length && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Focal Length</span>
-                                            <span className="text-gray-300">{imageDetails.focal_length}mm</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Focal Length</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.focal_length}mm</span>
                                         </div>
                                     )}
                                     {imageDetails?.aperture && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Aperture</span>
-                                            <span className="text-gray-300">f/{imageDetails.aperture.toFixed(1)}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Aperture</span>
+                                            <span className="text-gray-800 dark:text-gray-300">f/{imageDetails.aperture.toFixed(1)}</span>
                                         </div>
                                     )}
                                 </div>
@@ -318,46 +318,46 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Exposure Settings */}
                         {(imageDetails?.shutter_speed || imageDetails?.iso || imageDetails?.exposure_program || imageDetails?.metering_mode) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Zap size={12} />
                                     <span className="uppercase font-medium">Exposure</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     {imageDetails?.shutter_speed && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Shutter Speed</span>
-                                            <span className="text-gray-300">{imageDetails.shutter_speed}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Shutter Speed</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.shutter_speed}</span>
                                         </div>
                                     )}
                                     {imageDetails?.iso && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">ISO</span>
-                                            <span className="text-gray-300">{imageDetails.iso}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">ISO</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.iso}</span>
                                         </div>
                                     )}
                                     {imageDetails?.exposure_program && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Program</span>
-                                            <span className="text-gray-300">{imageDetails.exposure_program}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Program</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.exposure_program}</span>
                                         </div>
                                     )}
                                     {imageDetails?.metering_mode && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Metering</span>
-                                            <span className="text-gray-300">{imageDetails.metering_mode}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Metering</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.metering_mode}</span>
                                         </div>
                                     )}
                                     {imageDetails?.flash && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Flash</span>
-                                            <span className="text-gray-300">{imageDetails.flash}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Flash</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.flash}</span>
                                         </div>
                                     )}
                                     {imageDetails?.white_balance && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">White Balance</span>
-                                            <span className="text-gray-300">{imageDetails.white_balance}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">White Balance</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.white_balance}</span>
                                         </div>
                                     )}
                                 </div>
@@ -366,28 +366,28 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Color & Technical */}
                         {(imageDetails?.format || imageDetails?.color_space) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Palette size={12} />
                                     <span className="uppercase font-medium">Color</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     {imageDetails?.format && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Format</span>
-                                            <span className="text-gray-300">{imageDetails.format.toUpperCase()}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Format</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.format.toUpperCase()}</span>
                                         </div>
                                     )}
                                     {imageDetails?.color_space && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Color Space</span>
-                                            <span className="text-gray-300">{imageDetails.color_space}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Color Space</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.color_space}</span>
                                         </div>
                                     )}
                                     {imageDetails?.has_alpha !== null && imageDetails?.has_alpha !== undefined && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Alpha Channel</span>
-                                            <span className="text-gray-300">{imageDetails.has_alpha ? 'Yes' : 'No'}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Alpha Channel</span>
+                                            <span className="text-gray-800 dark:text-gray-300">{imageDetails.has_alpha ? 'Yes' : 'No'}</span>
                                         </div>
                                     )}
                                 </div>
@@ -396,15 +396,15 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Location Info */}
                         {(imageDetails?.gps_lat && imageDetails?.gps_lng) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <MapPin size={12} />
                                     <span className="uppercase font-medium">Location</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500">Coordinates</span>
-                                        <span className="text-gray-300 text-xs">
+                                        <span className="text-gray-600 dark:text-gray-500">Coordinates</span>
+                                        <span className="text-gray-800 dark:text-gray-300 text-xs">
                                             {imageDetails.gps_lat.toFixed(6)}, {imageDetails.gps_lng.toFixed(6)}
                                         </span>
                                     </div>
@@ -414,8 +414,8 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Scene Type */}
                         {imageDetails?.scene_type && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Image size={12} />
                                     <span className="uppercase font-medium">Scene</span>
                                 </div>
@@ -427,8 +427,8 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Auto Tags */}
                         {autoTags.length > 0 && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Tag size={12} />
                                     <span className="uppercase font-medium">AI Tags</span>
                                 </div>
@@ -442,7 +442,7 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
                                         </span>
                                     ))}
                                     {autoTags.length > 10 && (
-                                        <span className="px-2 py-0.5 text-xs text-gray-500">
+                                        <span className="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-500">
                                             +{autoTags.length - 10} more
                                         </span>
                                     )}
@@ -452,22 +452,22 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                         {/* Technical Info */}
                         {(imageDetails?.file_hash || imageDetails?.phash || imageDetails?.analyzed_at) && (
-                            <div className="bg-[#1a1a1a] rounded-lg border border-[#333333] p-3">
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-300 dark:border-[#333333] p-3">
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-500 mb-2">
                                     <Hash size={12} />
                                     <span className="uppercase font-medium">Technical</span>
                                 </div>
                                 <div className="space-y-1.5 text-sm">
                                     {imageDetails?.analyzed_at && (
                                         <div className="flex justify-between">
-                                            <span className="text-gray-500">Analyzed</span>
-                                            <span className="text-gray-300 text-xs">{formatDate(imageDetails.analyzed_at, false)}</span>
+                                            <span className="text-gray-600 dark:text-gray-500">Analyzed</span>
+                                            <span className="text-gray-800 dark:text-gray-300 text-xs">{formatDate(imageDetails.analyzed_at, false)}</span>
                                         </div>
                                     )}
                                     {imageDetails?.file_hash && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-gray-500">Hash</span>
-                                            <span className="text-gray-400 text-[10px] font-mono truncate max-w-[120px]" title={imageDetails.file_hash}>
+                                            <span className="text-gray-600 dark:text-gray-500">Hash</span>
+                                            <span className="text-gray-700 dark:text-gray-400 text-[10px] font-mono truncate max-w-[120px]" title={imageDetails.file_hash}>
                                                 {imageDetails.file_hash.slice(0, 16)}...
                                             </span>
                                         </div>
@@ -480,7 +480,7 @@ export function DetailsPanel({ selectedImagePath }: DetailsPanelProps) {
 
                 {/* No Selection State */}
                 {!selectedImagePath && !currentAlbum && (
-                    <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                    <div className="flex flex-col items-center justify-center h-48 text-gray-600 dark:text-gray-500">
                         <Info size={32} className="mb-2 opacity-50" />
                         <p className="text-sm">Select an image to view details</p>
                     </div>

@@ -2,19 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.1s ease;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: inherit;
+  background-color: inherit;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* === Design System Tokens === */
+
+  /* Accent - stored as R G B channels for Tailwind opacity support */
+  --accent: 200 169 81;         /* #C8A951 */
+  --accent-hover: 212 184 94;   /* #d4b85e */
+
+  /* Surfaces - light mode */
+  --surface-bg: 248 249 250;     /* app root bg: gray-50 */
+  --surface-panel: 255 255 255;  /* sidebars, library panel: white */
+  --surface-raised: 243 244 246; /* right/dev panels: gray-100 */
+  --surface-card: 255 255 255;   /* modals, dropdowns, cards: white */
+  --surface-input: 243 244 246;  /* input backgrounds: gray-100 */
+  --surface-hover: 243 244 246;  /* hover state bg: gray-100 */
+
+  /* Borders - light mode */
+  --border-subtle: 229 231 235;  /* gray-200 - dividers */
+  --border-base: 209 213 219;    /* gray-300 - standard borders */
+  --border-strong: 156 163 175;  /* gray-400 - pronounced borders */
+
+  /* Text - light mode */
+  --text-primary: 17 24 39;      /* gray-900 */
+  --text-secondary: 75 85 99;    /* gray-600 */
+  --text-muted: 107 114 128;     /* gray-500 */
+  --text-faint: 156 163 175;     /* gray-400 */
+}
+
+.dark {
+  /* Surfaces - dark mode */
+  --surface-bg: 20 20 20;        /* #141414 - deepest bg */
+  --surface-panel: 26 26 26;     /* #1a1a1a - sidebar, library */
+  --surface-raised: 37 37 37;    /* #252525 - right panel, dev panel */
+  --surface-card: 42 42 42;      /* #2a2a2a - modals, dropdowns */
+  --surface-input: 17 17 17;     /* #111111 - input backgrounds */
+  --surface-hover: 37 37 37;     /* #252525 - hover state bg */
+
+  /* Borders - dark mode */
+  --border-subtle: 42 42 42;     /* #2a2a2a */
+  --border-base: 51 51 51;       /* #333333 */
+  --border-strong: 58 58 58;     /* #3a3a3a */
+
+  /* Text - dark mode */
+  --text-primary: 229 231 235;   /* gray-200 */
+  --text-secondary: 156 163 175; /* gray-400 */
+  --text-muted: 107 114 128;     /* gray-500 */
+  --text-faint: 75 85 99;        /* gray-600 */
 }
 
 a {
@@ -48,17 +98,12 @@ h1 {
 button {
   border-radius: 8px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 0;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: transparent;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-
-button:hover {
-  border-color: #646cff;
 }
 
 button:focus,
@@ -68,16 +113,12 @@ button:focus-visible {
 
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: inherit;
+    background-color: inherit;
   }
 
   a:hover {
     color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
   }
 }
 

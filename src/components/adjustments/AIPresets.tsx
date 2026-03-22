@@ -5,6 +5,7 @@
 
 import { Plus } from 'lucide-react'
 import type { StylePreset, ImageAdjustments } from '../../../shared/types'
+import { SectionHeader, Badge, Button } from '../../design-system'
 
 // ---- Built-in AI presets -----------------------------------------------
 
@@ -120,15 +121,9 @@ function getSummaryChips(adjustments: Partial<ImageAdjustments>): { label: strin
 function PresetChip({ label, value }: { label: string; value: number }) {
     const isPositive = value >= 0
     return (
-        <span
-            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                isPositive
-                    ? 'bg-[#C8A951]/12 border-[#C8A951]/35 text-[#C8A951]'
-                    : 'bg-blue-500/12 border-blue-500/35 text-blue-300'
-            }`}
-        >
+        <Badge variant={isPositive ? 'accent' : 'blue'} size="sm">
             {label} {isPositive ? '+' : ''}{value}
-        </span>
+        </Badge>
     )
 }
 
@@ -145,13 +140,13 @@ function PresetCard({ name, adjustments, onClick }: PresetCardProps) {
         <button
             onClick={onClick}
             className="
-                group text-left rounded-lg bg-[#1e1e1e] border border-[#333333]
-                hover:border-[#C8A951]/60 hover:bg-[#222222]
+                group text-left rounded-lg bg-surface-card border border-border-base
+                hover:border-accent/60 hover:bg-surface-hover
                 transition-all duration-150 p-2.5 flex flex-col gap-2
-                focus:outline-none focus:border-[#C8A951]/80
+                focus:outline-none focus:border-accent/80
             "
         >
-            <span className="text-xs font-semibold text-gray-200 leading-tight truncate w-full">
+            <span className="text-xs font-semibold text-text-primary leading-tight truncate w-full">
                 {name}
             </span>
             {chips.length > 0 && (
@@ -195,9 +190,7 @@ export function AIPresets({ presets, onApplyPreset, onSavePreset, onApplyBuiltIn
     return (
         <div className="flex flex-col gap-3">
             {/* Section label */}
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                AI Presets
-            </div>
+            <SectionHeader title="AI Presets" />
 
             {/* Built-in presets grid */}
             <div className="grid grid-cols-3 gap-2">
@@ -214,7 +207,7 @@ export function AIPresets({ presets, onApplyPreset, onSavePreset, onApplyBuiltIn
             {/* User presets */}
             {presets.length > 0 && (
                 <>
-                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-1">
+                    <div className="text-xs font-semibold text-text-muted uppercase tracking-wide mt-1">
                         My Presets
                     </div>
                     <div className="grid grid-cols-3 gap-2">
@@ -231,18 +224,15 @@ export function AIPresets({ presets, onApplyPreset, onSavePreset, onApplyBuiltIn
             )}
 
             {/* Save current as preset */}
-            <button
+            <Button
                 onClick={handleSavePreset}
-                className="
-                    flex items-center justify-center gap-1.5 w-full py-2 px-3 mt-1
-                    text-xs text-gray-400 hover:text-gray-200
-                    bg-[#1a1a1a] border border-[#333333] hover:border-[#444444]
-                    rounded transition-colors
-                "
+                variant="ghost"
+                size="sm"
+                className="w-full mt-1"
+                leftIcon={<Plus size={12} />}
             >
-                <Plus size={12} />
                 Save Current as Preset
-            </button>
+            </Button>
         </div>
     )
 }

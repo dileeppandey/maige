@@ -2,9 +2,10 @@ import { useCallback, useMemo } from 'react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import { useLibraryStore } from '../../store/useLibraryStore'
 import { useUIStore } from '../../store/useUIStore'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Images } from 'lucide-react'
 import type { FileInfo } from '../../../shared/types'
 import { assetUrl } from '../../utils/assetUrl'
+import { EmptyState } from '../../design-system'
 
 interface GalleryGridProps {
     files: FileInfo[]
@@ -123,17 +124,16 @@ export function GalleryGrid({ files, onSelectFile }: GalleryGridProps) {
 
     if (files.length === 0) {
         return (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                    <p className="text-lg mb-2">No photos to display</p>
-                    <p className="text-sm text-gray-600">Import a folder to get started</p>
-                </div>
-            </div>
+            <EmptyState
+                icon={<Images size={40} />}
+                title="No photos to display"
+                description="Import a folder to get started"
+            />
         )
     }
 
     return (
-        <div className="flex-1 h-full overflow-hidden bg-[#1a1a1a] p-4">
+        <div className="flex-1 h-full overflow-hidden bg-gray-100 dark:bg-[#1a1a1a] p-4">
             <VirtuosoGrid
                 style={{ height: '100%' }}
                 totalCount={files.length}

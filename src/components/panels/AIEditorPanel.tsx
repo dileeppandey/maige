@@ -4,9 +4,10 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { Sparkles, Send, Paperclip, ImageIcon, Mic, Check, User } from 'lucide-react'
+import { Sparkles, Send, Paperclip, ImageIcon, Mic, Check, User, Settings2 } from 'lucide-react'
 import type { ImageAdjustments } from '../../../shared/types'
 import { useAIStore } from '../../store/useAIStore'
+import { useUIStore } from '../../store/useUIStore'
 
 interface AIEditorPanelProps {
     selectedImagePath: string | null
@@ -48,6 +49,7 @@ function formatAdjustmentLabel(key: string): string {
 
 export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEditorPanelProps) {
     const { messages, isThinking, sendMessage, applyProposal, clearMessages } = useAIStore()
+    const { toggleAIConfig } = useUIStore()
     const [input, setInput] = useState('')
 
     const threadRef = useRef<HTMLDivElement>(null)
@@ -98,13 +100,23 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
     }
 
     return (
-        <div className="h-full w-full flex flex-col bg-[#252525] border-r border-[#333333]">
+        <div className="h-full w-full flex flex-col bg-gray-50 dark:bg-[#252525] border-r border-gray-300 dark:border-[#333333]">
             {/* Header */}
-            <div className="h-10 flex items-center gap-2 px-4 border-b border-[#333333] bg-[#1f1f1f] flex-shrink-0">
-                <Sparkles size={14} className="text-[#C8A951]" />
-                <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-                    Lumina AI
-                </span>
+            <div className="h-10 flex items-center justify-between px-4 border-b border-gray-300 dark:border-[#333333] bg-white dark:bg-[#1f1f1f] flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    <Sparkles size={14} className="text-[#C8A951]" />
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-300 uppercase tracking-wide">
+                        AI Editor
+                    </span>
+                </div>
+                <button
+                    onClick={toggleAIConfig}
+                    className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+                    title="AI Configuration"
+                >
+                    <Settings2 size={13} />
+                    <span>Config</span>
+                </button>
             </div>
 
             {/* Message Thread */}
@@ -118,10 +130,10 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                         <div className="w-10 h-10 rounded-full bg-[#C8A951]/10 border border-[#C8A951]/30 flex items-center justify-center">
                             <Sparkles size={18} className="text-[#C8A951]" />
                         </div>
-                        <p className="text-sm text-gray-400 leading-relaxed">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                             Describe how you'd like to edit this photo
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-500 dark:text-gray-600">
                             e.g. "Make the sky more vibrant" or "Give it a warm cinematic feel"
                         </p>
                     </div>
@@ -136,11 +148,11 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                         {/* Avatar */}
                         <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${
                             message.role === 'user'
-                                ? 'bg-[#333333] border border-[#444444]'
+                                ? 'bg-gray-200 dark:bg-[#333333] border border-gray-300 dark:border-[#444444]'
                                 : 'bg-[#C8A951]/10 border border-[#C8A951]/30'
                         }`}>
                             {message.role === 'user'
-                                ? <User size={12} className="text-gray-400" />
+                                ? <User size={12} className="text-gray-700 dark:text-gray-400" />
                                 : <Sparkles size={12} className="text-[#C8A951]" />
                             }
                         </div>
@@ -150,19 +162,19 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                             {message.role === 'user' ? (
                                 // User bubble
                                 <div className="px-3 py-2 rounded-lg bg-[#C8A951]/20 border border-[#C8A951]/40">
-                                    <p className="text-sm text-gray-200 leading-relaxed">{message.content}</p>
+                                    <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">{message.content}</p>
                                 </div>
                             ) : (
                                 // AI response card
-                                <div className="rounded-lg bg-[#1e1e1e] border border-[#333333] p-3 flex flex-col gap-2.5">
+                                <div className="rounded-lg bg-gray-50 dark:bg-[#1e1e1e] border border-gray-300 dark:border-[#333333] p-3 flex flex-col gap-2.5">
                                     <div className="flex items-center gap-1.5">
                                         <Sparkles size={11} className="text-[#C8A951]" />
                                         <span className="text-[11px] font-semibold text-[#C8A951] uppercase tracking-wide">
-                                            Lumina AI
+                                            Maige AI
                                         </span>
                                     </div>
 
-                                    <p className="text-sm text-gray-300 leading-relaxed">{message.content}</p>
+                                    <p className="text-sm text-gray-800 dark:text-gray-300 leading-relaxed">{message.content}</p>
 
                                     {/* Adjustment chips — flatten nested Partial<ImageAdjustments> */}
                                     {message.proposedAdjustments && (() => {
@@ -213,7 +225,7 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                                 </div>
                             )}
 
-                            <span className="text-[10px] text-gray-600 px-1">
+                            <span className="text-[10px] text-gray-500 dark:text-gray-600 px-1">
                                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                         </div>
@@ -226,21 +238,21 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                         <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#C8A951]/10 border border-[#C8A951]/30 flex items-center justify-center mt-0.5">
                             <Sparkles size={12} className="text-[#C8A951]" />
                         </div>
-                        <div className="rounded-lg bg-[#1e1e1e] border border-[#333333] p-3 flex items-center gap-2">
+                        <div className="rounded-lg bg-gray-50 dark:bg-[#1e1e1e] border border-gray-300 dark:border-[#333333] p-3 flex items-center gap-2">
                             <div className="flex gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C8A951]/60 animate-bounce [animation-delay:0ms]" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C8A951]/60 animate-bounce [animation-delay:150ms]" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#C8A951]/60 animate-bounce [animation-delay:300ms]" />
                             </div>
-                            <span className="text-xs text-gray-500">Lumina AI is thinking...</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-500">Maige AI is thinking...</span>
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Input area */}
-            <div className="flex-shrink-0 border-t border-[#333333] p-3 bg-[#1f1f1f]">
-                <div className="rounded-lg bg-[#252525] border border-[#333333] focus-within:border-[#C8A951]/50 transition-colors">
+            <div className="flex-shrink-0 border-t border-gray-300 dark:border-[#333333] p-3 bg-white dark:bg-[#1f1f1f]">
+                <div className="rounded-lg bg-gray-50 dark:bg-[#252525] border border-gray-300 dark:border-[#333333] focus-within:border-[#C8A951]/50 transition-colors">
                     <textarea
                         ref={textareaRef}
                         value={input}
@@ -248,7 +260,7 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                         onKeyDown={handleKeyDown}
                         placeholder="Describe what you want to edit..."
                         rows={1}
-                        className="w-full bg-transparent text-sm text-gray-200 placeholder-gray-600 px-3 pt-2.5 pb-1 resize-none outline-none leading-relaxed"
+                        className="w-full bg-transparent text-sm text-gray-900 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-600 px-3 pt-2.5 pb-1 resize-none outline-none leading-relaxed"
                         style={{ minHeight: '36px', maxHeight: '120px' }}
                     />
 
@@ -256,20 +268,20 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                     <div className="flex items-center justify-between px-2 pb-2 pt-1">
                         <div className="flex items-center gap-0.5">
                             <button
-                                className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-[#333333] rounded transition-colors"
+                                className="p-1.5 text-gray-600 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#333333] rounded transition-colors"
                                 title="Attach file"
                             >
                                 <Paperclip size={14} />
                             </button>
                             <button
-                                className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-[#333333] rounded transition-colors"
+                                className="p-1.5 text-gray-600 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#333333] rounded transition-colors"
                                 title="Reference image"
                             >
                                 <ImageIcon size={14} />
                             </button>
                             <button
                                 disabled
-                                className="p-1.5 text-gray-600 rounded cursor-not-allowed opacity-40"
+                                className="p-1.5 text-gray-500 dark:text-gray-600 rounded cursor-not-allowed opacity-40"
                                 title="Voice input (coming soon)"
                             >
                                 <Mic size={14} />
@@ -287,7 +299,7 @@ export function AIEditorPanel({ selectedImagePath, onApplyAdjustments }: AIEdito
                     </div>
                 </div>
 
-                <p className="text-[10px] text-gray-700 text-center mt-2">
+                <p className="text-[10px] text-gray-600 dark:text-gray-700 text-center mt-2">
                     Press Enter to send · Shift+Enter for new line
                 </p>
             </div>

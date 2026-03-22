@@ -4,10 +4,11 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Copy, Trash2, Check, Loader2, ArrowLeft } from 'lucide-react';
+import { Copy, Trash2, Check, ArrowLeft } from 'lucide-react';
 import type { DuplicateGroup, LibraryImage } from '../../../shared/types';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { assetUrl } from '../../utils/assetUrl';
+import { EmptyState, Spinner, Button } from '../../design-system';
 
 interface DuplicatesPanelProps {
     onSelectImage?: (path: string) => void;
@@ -83,27 +84,28 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full bg-[#252525]">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <div className="flex items-center justify-center h-full bg-surface-panel">
+                <Spinner fullHeight label="Scanning for duplicates..." />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#252525] text-white">
+        <div className="flex flex-col h-full bg-surface-panel text-text-primary">
             {/* Header */}
-            <div className="p-3 border-b border-[#333333]">
+            <div className="p-3 border-b border-border-base">
                 <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => showAllPhotos()}
-                        className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
                         title="Back to Library"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                    </button>
+                    </Button>
                     <Copy className="w-4 h-4 text-orange-500" />
                     <h2 className="text-sm font-medium">Duplicates</h2>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-text-secondary">
                         {duplicateGroups.length} group{duplicateGroups.length !== 1 ? 's' : ''}
                     </span>
                 </div>
@@ -112,30 +114,31 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-3">
                 {duplicateGroups.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                        <Copy className="w-12 h-12 mb-2 opacity-50" />
-                        <p className="text-sm">No duplicate images found</p>
-                        <p className="text-xs mt-1">Import images to detect duplicates</p>
-                    </div>
+                    <EmptyState
+                        icon={<Copy size={36} />}
+                        title="No duplicate images found"
+                        description="Import images to detect duplicates"
+                    />
                 ) : (
                     <div className="space-y-4">
                         {duplicateGroups.map((group, groupIndex) => {
                             const selected = selectedInGroup[groupIndex] || new Set();
                             return (
-                                <div key={group.groupId} className="bg-gray-700/50 rounded-lg p-3">
+                                <div key={group.groupId} className="bg-surface-raised rounded-lg p-3">
                                     {/* Group header */}
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs text-gray-400">
+                                        <span className="text-xs text-text-secondary">
                                             Group {groupIndex + 1} • {group.images.length} similar images
                                         </span>
                                         {selected.size > 0 && (
-                                            <button
+                                            <Button
+                                                variant="danger"
+                                                size="xs"
                                                 onClick={() => handleDeleteSelected(groupIndex, group.images)}
-                                                className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-xs"
+                                                leftIcon={<Trash2 className="w-3 h-3" />}
                                             >
-                                                <Trash2 className="w-3 h-3" />
                                                 Delete {selected.size}
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
 
@@ -162,7 +165,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
                                                 {/* Selection indicator */}
                                                 <div className={`absolute top-1 right-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selected.has(image.id)
                                                     ? 'bg-red-500 border-red-500'
-                                                    : 'bg-gray-800/60 border-gray-400'
+                                                    : 'bg-surface-card border-border-base'
                                                     }`}>
                                                     {selected.has(image.id) && (
                                                         <Check className="w-3 h-3 text-white" />
@@ -185,7 +188,7 @@ export function DuplicatesPanel({ onSelectImage }: DuplicatesPanelProps) {
             </div>
 
             {/* Footer info */}
-            <div className="p-2 border-t border-[#333333] text-xs text-gray-500 text-center">
+            <div className="p-2 border-t border-border-base text-xs text-text-muted text-center">
                 Click to select • Double-click to view • Select duplicates to delete
             </div>
         </div>
