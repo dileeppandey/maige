@@ -1,25 +1,36 @@
-import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef, type WheelEvent, type MouseEvent } from 'react'
 import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
 import { useCanvasProcessor } from '../../hooks/useCanvasProcessor'
 import { ExportModal } from '../ExportModal'
+import CropOverlay from '../tools/CropOverlay'
+import { useUIStore, type CropRect } from '../../store/useUIStore'
 import type { ImageAdjustments } from '../../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
+
+export interface ImageViewerHandle {
+    applyCrop: (rect: { x: number; y: number; w: number; h: number }) => void
+    applyRotate90: () => void
+    applyFlipH: () => void
+    getDimensions: () => { width: number; height: number }
+}
 
 interface ImageViewerProps {
     src: string
     adjustments?: ImageAdjustments
     onHistogramChange?: (data: { r: number[]; g: number[]; b: number[]; lum: number[] } | null) => void
+    onDimensionsChange?: (dims: { width: number; height: number }) => void
 }
 
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
 const ZOOM_STEP = 0.25
 
-export function ImageViewer({
+export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(function ImageViewer({
     src,
     adjustments = DEFAULT_IMAGE_ADJUSTMENTS,
-    onHistogramChange
-}: ImageViewerProps) {
+    onHistogramChange,
+    onDimensionsChange
+}, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -34,6 +45,29 @@ export function ImageViewer({
     const [scrollStart, setScrollStart] = useState({ x: 0, y: 0 })
     const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
+    // Tool and crop state from store
+    const { cropState, setCropState, activeTool } = useUIStore()
+
+    const handleCropChange = useCallback((rect: CropRect) => {
+        setCropState({ rect })
+    }, [setCropState])
+
+    // Tool-based cursor for the canvas area
+    const getToolCursor = useCallback(() => {
+        if (isHandToolActive) return isDragging ? 'grabbing' : 'grab'
+        switch (activeTool) {
+            case 'crop': return 'crosshair'
+            case 'brush': return 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'1.5\'%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'8\'/%3E%3Ccircle cx=\'12\' cy=\'12\' r=\'1\' fill=\'white\'/%3E%3C/svg%3E") 12 12, crosshair'
+            case 'eraser': return 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'1.5\'%3E%3Crect x=\'4\' y=\'4\' width=\'16\' height=\'16\' rx=\'2\'/%3E%3Cline x1=\'8\' y1=\'12\' x2=\'16\' y2=\'12\'/%3E%3C/svg%3E") 12 12, crosshair'
+            case 'pen': return 'crosshair'
+            case 'text': return 'text'
+            case 'ai': return 'default'
+            case 'select': return 'default'
+            case 'layers': return 'default'
+            default: return 'default'
+        }
+    }, [activeTool, isHandToolActive, isDragging])
+
     // Canvas processor hook
     const {
         canvasRef,
@@ -44,18 +78,47 @@ export function ImageViewer({
         showOriginal,
         showProcessed,
         isShowingOriginal,
-        getCanvasDataUrl
+        getCanvasDataUrl,
+        applyCrop,
+        applyRotate90,
+        applyFlipH
     } = useCanvasProcessor({
         src,
         adjustments
     })
+
+    // Expose imperative methods for crop/rotate/flip
+    useImperativeHandle(ref, () => ({
+        applyCrop,
+        applyRotate90,
+        applyFlipH,
+        getDimensions: () => dimensions,
+    }), [applyCrop, applyRotate90, applyFlipH, dimensions])
 
     // Propagate histogram changes to parent
     useEffect(() => {
         onHistogramChange?.(histogram)
     }, [histogram, onHistogramChange])
 
+    // Propagate dimension changes to parent
+    useEffect(() => {
+        if (dimensions.width > 0) {
+            onDimensionsChange?.(dimensions)
+        }
+    }, [dimensions, onDimensionsChange])
+
     const { width: naturalWidth, height: naturalHeight } = dimensions
+
+    // Compute numeric aspect ratio for CropOverlay (after dimensions is available)
+    const cropAspectRatio = (() => {
+        const ar = cropState.aspectRatio
+        if (ar === 'freeform') return null
+        if (ar === '16:9') return 16 / 9
+        if (ar === '4:5') return 4 / 5
+        if (ar === '1:1') return 1
+        if (ar === 'original' && naturalWidth > 0) return naturalWidth / naturalHeight
+        return null
+    })()
 
     // Calculate fit zoom based on container and image dimensions
     const calculateFitZoom = useCallback(() => {
@@ -220,10 +283,7 @@ export function ImageViewer({
 
     // Determine cursor for scroll container
     const getContainerCursor = () => {
-        if (isHandToolActive) {
-            return isDragging ? 'grabbing' : 'grab'
-        }
-        return 'default'
+        return getToolCursor()
     }
 
     const handleExportClick = () => {
@@ -252,50 +312,50 @@ export function ImageViewer({
     }, [isShowingOriginal, showProcessed])
 
     return (
-        <div ref={containerRef} className="h-full w-full flex flex-col bg-[#1e1e1e] overflow-hidden">
+        <div ref={containerRef} className="h-full w-full flex flex-col bg-gray-200 dark:bg-[#1e1e1e] overflow-hidden">
             {/* Zoom Toolbar */}
-            <div className="h-8 flex-shrink-0 flex items-center justify-center gap-2 bg-[#1a1a1a] border-b border-[#333333] text-xs">
+            <div className="h-8 flex-shrink-0 flex items-center justify-center gap-2 bg-gray-100 dark:bg-[#1a1a1a] border-b border-gray-300 dark:border-[#333333] text-xs">
                 <button
                     onClick={zoomOut}
                     disabled={zoom <= MIN_ZOOM}
-                    className="p-1 hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Zoom Out (-)"
                 >
                     <ZoomOut size={14} />
                 </button>
-                <span className="w-12 text-center text-gray-400 select-none">{zoomPercent}%</span>
+                <span className="w-12 text-center text-gray-700 dark:text-gray-400 select-none">{zoomPercent}%</span>
                 <button
                     onClick={zoomIn}
                     disabled={zoom >= MAX_ZOOM}
-                    className="p-1 hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed"
                     title="Zoom In (+)"
                 >
                     <ZoomIn size={14} />
                 </button>
-                <div className="w-px h-4 bg-[#333333] mx-1" />
+                <div className="w-px h-4 bg-gray-300 dark:bg-[#333333] mx-1" />
                 <button
                     onClick={fitToView}
-                    className={`p-1 hover:bg-[#333333] rounded ${isFitMode ? 'bg-[#444444]' : ''}`}
+                    className={`p-1 hover:bg-gray-200 dark:hover:bg-[#333333] rounded ${isFitMode ? 'bg-gray-300 dark:bg-[#444444]' : ''}`}
                     title="Fit to View"
                 >
                     <Maximize size={14} />
                 </button>
                 <button
                     onClick={actualSize}
-                    className={`p-1 hover:bg-[#333333] rounded ${zoom === 1 && !isFitMode ? 'bg-[#444444]' : ''}`}
+                    className={`p-1 hover:bg-gray-200 dark:hover:bg-[#333333] rounded ${zoom === 1 && !isFitMode ? 'bg-gray-300 dark:bg-[#444444]' : ''}`}
                     title="Actual Size (100%)"
                 >
                     <Square size={14} />
                 </button>
-                <div className="w-px h-4 bg-[#333333] mx-1" />
+                <div className="w-px h-4 bg-gray-300 dark:bg-[#333333] mx-1" />
                 <button
                     onClick={toggleHandTool}
-                    className={`p-1 hover:bg-[#333333] rounded ${isHandToolActive ? 'bg-[#444444]' : ''}`}
+                    className={`p-1 hover:bg-gray-200 dark:hover:bg-[#333333] rounded ${isHandToolActive ? 'bg-gray-300 dark:bg-[#444444]' : ''}`}
                     title="Hand Tool (Pan)"
                 >
                     <Hand size={14} />
                 </button>
-                <div className="w-px h-4 bg-[#333333] mx-1" />
+                <div className="w-px h-4 bg-gray-300 dark:bg-[#333333] mx-1" />
                 <button
                     onClick={handleExportClick}
                     disabled={isLoading || !!error}
@@ -318,21 +378,21 @@ export function ImageViewer({
                 onMouseLeave={handleMouseLeave}
                 style={{
                     scrollbarWidth: 'thin',
-                    scrollbarColor: '#444444 #1a1a1a',
+                    scrollbarColor: 'var(--sb-color)',
                     cursor: getContainerCursor(),
-                }}
+                } as any}
             >
                 {/* Loading State */}
                 {isLoading && (
                     <div className="flex items-center justify-center h-full">
-                        <div className="text-gray-500">Loading...</div>
+                        <div className="text-gray-600 dark:text-gray-500">Loading...</div>
                     </div>
                 )}
 
                 {/* Error State */}
                 {error && (
                     <div className="flex items-center justify-center h-full">
-                        <div className="text-red-500">{error}</div>
+                        <div className="text-red-600 dark:text-red-500">{error}</div>
                     </div>
                 )}
 
@@ -363,6 +423,16 @@ export function ImageViewer({
                                     pointerEvents: isHandToolActive ? 'none' : 'auto',
                                 }}
                             />
+                            {/* Crop overlay */}
+                            {cropState.active && scaledWidth > 0 && scaledHeight > 0 && (
+                                <CropOverlay
+                                    width={scaledWidth}
+                                    height={scaledHeight}
+                                    cropRect={cropState.rect}
+                                    onCropChange={handleCropChange}
+                                    aspectRatio={cropAspectRatio}
+                                />
+                            )}
                             {/* Original indicator overlay */}
                             {isShowingOriginal && (
                                 <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
@@ -383,4 +453,4 @@ export function ImageViewer({
             />
         </div>
     )
-}
+})

@@ -256,3 +256,32 @@ export type FaceStats = {
     unidentifiedFaces: number;
     totalPeople: number;
 };
+
+// ============================================
+// AI Editing Types
+// ============================================
+
+export interface AIMessage {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    proposedAdjustments?: Partial<ImageAdjustments>
+    applied: boolean
+    timestamp: string
+}
+
+export interface AIConfig {
+    provider: 'claude' | 'gpt4vision' | 'gemini'
+    inputChannels: {
+        textPrompts: boolean
+        imageReference: boolean
+        voiceInput: boolean
+    }
+}
+
+export type BatchOperation = 'colorGrading' | 'autoEnhance' | 'noiseReduction' | 'smartCrop'
+
+export interface AIBatchState {
+    isBatchProcessing: boolean
+    batchProgress: { current: number; total: number }
+}

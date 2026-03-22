@@ -25,6 +25,7 @@ pub struct DbImage {
     pub adjustments: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub ai_edited: bool,
 }
 
 /// Album record
@@ -128,7 +129,7 @@ fn get_db_path(app: &AppHandle) -> PathBuf {
         .join("maige.db")
 }
 
-/// Helper to map a rusqlite row to DbImage (columns 0..14)
+/// Helper to map a rusqlite row to DbImage (columns 0..15)
 fn row_to_db_image(row: &rusqlite::Row) -> rusqlite::Result<DbImage> {
     Ok(DbImage {
         id: row.get(0)?,
@@ -146,6 +147,7 @@ fn row_to_db_image(row: &rusqlite::Row) -> rusqlite::Result<DbImage> {
         adjustments: row.get(12)?,
         created_at: row.get(13)?,
         updated_at: row.get(14)?,
+        ai_edited: row.get::<_, i32>(15).unwrap_or(0) != 0,
     })
 }
 
@@ -178,7 +180,8 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
             phash TEXT NOT NULL,
             adjustments TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            ai_edited INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS albums (
@@ -248,8 +251,18 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_faces_image_id ON faces(image_id);
         CREATE INDEX IF NOT EXISTS idx_faces_person_id ON faces(person_id);
         CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id);
+
+        CREATE TABLE IF NOT EXISTS app_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         "#,
     )?;
+
+    // Migrations for existing databases
+    conn.execute_batch(
+        "ALTER TABLE images ADD COLUMN ai_edited INTEGER NOT NULL DEFAULT 0;"
+    ).ok(); // ok() because this fails silently if column already exists
 
     Ok(())
 }
@@ -295,7 +308,7 @@ pub async fn get_all_images(app: &AppHandle) -> anyhow::Result<Vec<DbImage>> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, file_name, file_size, file_hash, width, height,
                 format, date_taken, camera_make, camera_model, phash, adjustments,
-                created_at, updated_at
+                created_at, updated_at, ai_edited
          FROM images ORDER BY date_taken DESC, created_at DESC"
     )?;
 
@@ -312,7 +325,7 @@ pub async fn get_image_by_id(app: &AppHandle, id: i64) -> anyhow::Result<Option<
     let mut stmt = conn.prepare(
         "SELECT id, file_path, file_name, file_size, file_hash, width, height,
                 format, date_taken, camera_make, camera_model, phash, adjustments,
-                created_at, updated_at
+                created_at, updated_at, ai_edited
          FROM images WHERE id = ?1"
     )?;
 
@@ -346,7 +359,7 @@ pub async fn search(app: &AppHandle, query: &str) -> anyhow::Result<Vec<DbImage>
     let mut stmt = conn.prepare(
         "SELECT id, file_path, file_name, file_size, file_hash, width, height,
                 format, date_taken, camera_make, camera_model, phash, adjustments,
-                created_at, updated_at
+                created_at, updated_at, ai_edited
          FROM images
          WHERE file_name LIKE ?1 OR camera_make LIKE ?1 OR camera_model LIKE ?1
          ORDER BY date_taken DESC"
@@ -446,7 +459,7 @@ pub async fn get_album_images(app: &AppHandle, album_id: i64) -> anyhow::Result<
     let mut stmt = conn.prepare(
         "SELECT i.id, i.file_path, i.file_name, i.file_size, i.file_hash,
                 i.width, i.height, i.format, i.date_taken, i.camera_make,
-                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at
+                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at, i.ai_edited
          FROM images i
          JOIN album_images ai ON ai.image_id = i.id
          WHERE ai.album_id = ?1
@@ -587,7 +600,7 @@ pub async fn get_images_by_tag(app: &AppHandle, tag_name: &str) -> anyhow::Resul
     let mut stmt = conn.prepare(
         "SELECT i.id, i.file_path, i.file_name, i.file_size, i.file_hash,
                 i.width, i.height, i.format, i.date_taken, i.camera_make,
-                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at
+                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at, i.ai_edited
          FROM images i
          JOIN image_tags it ON it.image_id = i.id
          JOIN tags t ON t.id = it.tag_id
@@ -691,7 +704,7 @@ pub async fn get_images_by_person(app: &AppHandle, person_id: i64) -> anyhow::Re
     let mut stmt = conn.prepare(
         "SELECT DISTINCT i.id, i.file_path, i.file_name, i.file_size, i.file_hash,
                 i.width, i.height, i.format, i.date_taken, i.camera_make,
-                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at
+                i.camera_model, i.phash, i.adjustments, i.created_at, i.updated_at, i.ai_edited
          FROM images i
          JOIN faces f ON f.image_id = i.id
          WHERE f.person_id = ?1
@@ -1008,6 +1021,94 @@ pub async fn load_presets(app: &AppHandle) -> anyhow::Result<Vec<Preset>> {
         .collect();
 
     Ok(presets)
+}
+
+/// Mark an image as AI-edited
+pub async fn mark_image_ai_edited(app: &AppHandle, image_id: i64) -> Result<(), String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE images SET ai_edited = 1, updated_at = datetime('now') WHERE id = ?1",
+        params![image_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Get all AI-enhanced images
+pub async fn get_ai_enhanced_images(app: &AppHandle) -> Result<Vec<DbImage>, String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, file_path, file_name, file_size, file_hash, width, height,
+                format, date_taken, camera_make, camera_model, phash, adjustments,
+                created_at, updated_at, ai_edited
+         FROM images WHERE ai_edited = 1 ORDER BY updated_at DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let images = stmt.query_map([], row_to_db_image).map_err(|e| e.to_string())?;
+
+    Ok(images.filter_map(|r| r.ok()).collect())
+}
+
+/// Save AI config to app_config table
+pub async fn save_ai_config(app: &AppHandle, config: &str) -> Result<(), String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO app_config (key, value) VALUES ('ai_config', ?1)",
+        params![config],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Load AI config from app_config table
+pub async fn load_ai_config(app: &AppHandle) -> Result<Option<String>, String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let result = conn.query_row(
+        "SELECT value FROM app_config WHERE key = 'ai_config'",
+        [],
+        |row| row.get::<_, String>(0),
+    ).optional().map_err(|e| e.to_string())?;
+
+    Ok(result)
+}
+
+/// Save an API key for a provider
+pub async fn save_api_key(app: &AppHandle, provider: &str, key: &str) -> Result<(), String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let config_key = format!("api_key_{}", provider);
+
+    conn.execute(
+        "INSERT OR REPLACE INTO app_config (key, value) VALUES (?1, ?2)",
+        params![config_key, key],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Get an API key for a provider
+pub async fn get_api_key(app: &AppHandle, provider: &str) -> Result<Option<String>, String> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let config_key = format!("api_key_{}", provider);
+
+    let result = conn.query_row(
+        "SELECT value FROM app_config WHERE key = ?1",
+        params![config_key],
+        |row| row.get::<_, String>(0),
+    ).optional().map_err(|e| e.to_string())?;
+
+    Ok(result)
 }
 
 /// Get a face thumbnail as a base64-encoded JPEG

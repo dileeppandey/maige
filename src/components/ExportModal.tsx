@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { useLibraryStore } from '../store/useLibraryStore'
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from '../design-system'
 
 interface ExportModalProps {
     isOpen: boolean
@@ -21,8 +22,6 @@ export function ExportModal({
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
     const { invalidateImageCache } = useLibraryStore()
-
-    if (!isOpen) return null
 
     const handleExport = async (overwrite: boolean) => {
         setError(null)
@@ -86,33 +85,18 @@ export function ExportModal({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-[#2a2a2a] rounded-lg shadow-xl w-[400px] max-w-[90vw]">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
-                    <h2 className="text-sm font-medium text-white flex items-center gap-2">
-                        <Download size={16} />
-                        Export Image
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1 hover:bg-[#333333] rounded text-gray-400 hover:text-white"
-                    >
-                        <X size={16} />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="p-4 space-y-4">
+        <Modal isOpen={isOpen} onClose={onClose} size="sm">
+            <ModalHeader onClose={onClose} icon={<Download size={16} />}>Export Image</ModalHeader>
+            <ModalBody className="space-y-4">
                     {/* Format Selection */}
                     <div>
-                        <label className="block text-xs text-gray-400 mb-2">Format</label>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">Format</label>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setFormat('jpeg')}
                                 className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${format === 'jpeg'
                                     ? 'bg-blue-600 text-white'
-                                    : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+                                    : 'bg-gray-200 dark:bg-[#333333] text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-[#404040]'
                                     }`}
                             >
                                 JPEG
@@ -121,7 +105,7 @@ export function ExportModal({
                                 onClick={() => setFormat('png')}
                                 className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${format === 'png'
                                     ? 'bg-blue-600 text-white'
-                                    : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+                                    : 'bg-gray-200 dark:bg-[#333333] text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-[#404040]'
                                     }`}
                             >
                                 PNG
@@ -132,7 +116,7 @@ export function ExportModal({
                     {/* Quality Slider (JPEG only) */}
                     {format === 'jpeg' && (
                         <div>
-                            <label className="block text-xs text-gray-400 mb-2">
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-2">
                                 Quality: {quality}%
                             </label>
                             <input
@@ -157,27 +141,28 @@ export function ExportModal({
                             {success}
                         </div>
                     )}
-                </div>
+            </ModalBody>
 
-                {/* Actions */}
-                <div className="px-4 py-3 border-t border-[#333333] flex gap-2">
-                    <button
-                        onClick={() => handleExport(false)}
-                        disabled={isExporting}
-                        className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded text-sm font-medium transition-colors"
-                    >
-                        {isExporting ? 'Exporting...' : 'Save As...'}
-                    </button>
-                    <button
-                        onClick={() => handleExport(true)}
-                        disabled={isExporting}
-                        className="flex-1 py-2 px-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded text-sm font-medium transition-colors"
-                        title="Overwrite original file"
-                    >
-                        Overwrite
-                    </button>
-                </div>
-            </div>
-        </div>
+            <ModalFooter>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleExport(false)}
+                    disabled={isExporting}
+                    loading={isExporting}
+                >
+                    {isExporting ? 'Exporting...' : 'Save As...'}
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleExport(true)}
+                    disabled={isExporting}
+                    title="Overwrite original file"
+                >
+                    Overwrite
+                </Button>
+            </ModalFooter>
+        </Modal>
     )
 }

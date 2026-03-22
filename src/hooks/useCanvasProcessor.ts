@@ -17,6 +17,9 @@ interface UseCanvasProcessorReturn {
     showProcessed: () => void
     isShowingOriginal: boolean
     getCanvasDataUrl: (format?: 'image/jpeg' | 'image/png', quality?: number) => string | null
+    applyCrop: (rect: { x: number; y: number; w: number; h: number }) => void
+    applyRotate90: () => void
+    applyFlipH: () => void
 }
 
 /**
@@ -159,6 +162,40 @@ export function useCanvasProcessor({
         return canvas.toDataURL(format, quality)
     }, [])
 
+    // Crop the original image and re-render
+    const applyCrop = useCallback((rect: { x: number; y: number; w: number; h: number }) => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+        if (!processor || !processor.isLoaded() || !canvas) return
+
+        processor.cropOriginal(rect)
+        setDimensions(processor.getDimensions())
+        processor.processToCanvas(currentAdjustmentsRef.current, canvas)
+        setHistogram(processor.generateHistogram(currentAdjustmentsRef.current))
+    }, [])
+
+    // Rotate the original image 90° clockwise and re-render
+    const applyRotate90 = useCallback(() => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+        if (!processor || !processor.isLoaded() || !canvas) return
+
+        processor.rotateOriginal90()
+        setDimensions(processor.getDimensions())
+        processor.processToCanvas(currentAdjustmentsRef.current, canvas)
+        setHistogram(processor.generateHistogram(currentAdjustmentsRef.current))
+    }, [])
+
+    // Flip the original image horizontally and re-render
+    const applyFlipH = useCallback(() => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+        if (!processor || !processor.isLoaded() || !canvas) return
+
+        processor.flipOriginalH()
+        processor.processToCanvas(currentAdjustmentsRef.current, canvas)
+    }, [])
+
     return {
         canvasRef,
         isLoading,
@@ -168,6 +205,9 @@ export function useCanvasProcessor({
         showOriginal,
         showProcessed,
         isShowingOriginal,
-        getCanvasDataUrl
+        getCanvasDataUrl,
+        applyCrop,
+        applyRotate90,
+        applyFlipH
     }
 }

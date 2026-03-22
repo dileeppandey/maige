@@ -79,12 +79,12 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
         : null
 
     return (
-        <div className="h-[120px] bg-[#252525] border-t border-[#333333] flex flex-col">
-            <div className="h-8 flex items-center justify-between px-3 bg-[#1f1f1f] border-b border-[#333333] text-[11px] text-gray-500">
+        <div className="h-[120px] bg-gray-100 dark:bg-[#252525] border-t border-gray-300 dark:border-[#333333] flex flex-col">
+            <div className="h-8 flex items-center justify-between px-3 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-300 dark:border-[#333333] text-[11px] text-gray-600 dark:text-gray-500">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="flex-shrink-0">{currentAlbum ? `📁 ${currentAlbum.name}` : 'Filmstrip'}</span>
                     {currentAlbum?.description && (
-                        <span className="text-gray-600 truncate" title={currentAlbum.description}>
+                        <span className="text-gray-500 dark:text-gray-600 truncate" title={currentAlbum.description}>
                             — {currentAlbum.description}
                         </span>
                     )}
@@ -98,12 +98,12 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                     )}
                 </div>
                 {selectedImageIds.size > 0 && (
-                    <span className="text-blue-400 flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 flex-shrink-0">
                         {selectedImageIds.size} selected (⌘+Click to select)
                     </span>
                 )}
                 {selectedImageIds.size === 0 && (
-                    <span className="text-gray-600 flex-shrink-0">
+                    <span className="text-gray-500 dark:text-gray-600 flex-shrink-0">
                         ⌘+Click to multi-select
                     </span>
                 )}
@@ -193,7 +193,7 @@ export function Filmstrip({ files, selectedFile, onSelectFile }: FilmstripProps)
                 {hasMore && viewMode !== 'cluster' && viewMode !== 'people' && viewMode !== 'album' && viewMode !== 'duplicates' && (
                     <div ref={loadMoreRef} className="flex-shrink-0 w-20 h-full flex items-center justify-center">
                         {isLoadingMore && (
-                            <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
+                            <Loader2 className="w-5 h-5 text-gray-500 dark:text-gray-600 animate-spin" />
                         )}
                     </div>
                 )}

@@ -8,6 +8,7 @@ import { Users, UserPlus, Loader2, RefreshCw, EyeOff, Eye, CheckSquare, X, Spark
 import type { PersonRecord, FaceRecord, FaceCluster, FaceStats } from '../../../shared/types';
 import { FaceThumbnail } from '../FaceThumbnail';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { EmptyState, Spinner, Button } from '../../design-system';
 
 interface PeoplePanelProps {
     onSelectPerson?: (personId: number) => void;
@@ -209,39 +210,40 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <div className="flex items-center justify-center h-full bg-surface-panel">
+                <Spinner fullHeight />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#252525] text-white relative">
+        <div className="flex flex-col h-full bg-surface-panel text-text-primary relative">
             {/* Header */}
-            <div className="p-3 border-b border-[#333333]">
+            <div className="p-3 border-b border-border-base">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => window.dispatchEvent(new CustomEvent('showLibrary'))}
-                            className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white"
                             title="Back to Library"
                         >
                             ←
-                        </button>
+                        </Button>
                         <Users className="w-4 h-4 text-purple-400" />
                         <span className="font-semibold text-sm uppercase tracking-wide">People</span>
                     </div>
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setShowHidden(!showHidden)}
-                            className={`p-1 rounded ${showHidden ? 'bg-gray-700 text-purple-400' : 'hover:bg-gray-700 text-gray-400 hover:text-white'}`}
+                            className={`p-1 rounded ${showHidden ? 'bg-gray-200 dark:bg-gray-700 text-purple-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'}`}
                             title={showHidden ? 'Hide hidden people' : 'Show hidden people'}
                         >
                             {showHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                         </button>
                         <button
                             onClick={loadData}
-                            className="p-1 hover:bg-gray-700 rounded"
+                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                             title="Refresh"
                         >
                             <RefreshCw className="w-4 h-4" />
@@ -251,7 +253,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
 
                 {/* Stats */}
                 {stats && (
-                    <div className="mt-2 text-xs text-gray-400 grid grid-cols-2 gap-1">
+                    <div className="mt-2 text-xs text-text-secondary grid grid-cols-2 gap-1">
                         <span>{stats.totalPeople} people</span>
                         <span>{stats.totalFaces} faces</span>
                         <span>{stats.identifiedFaces} identified</span>
@@ -264,8 +266,8 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             <div className="flex-1 overflow-y-auto">
                 {/* Named People */}
                 {people.length > 0 && (
-                    <div className="p-3 border-b border-gray-700">
-                        <h3 className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                    <div className="p-3 border-b border-border-base">
+                        <h3 className="text-xs font-semibold text-text-secondary uppercase mb-2">
                             Named People
                         </h3>
                         <div className="space-y-1">
@@ -273,24 +275,26 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                 <div
                                     key={person.id}
                                     className={`flex items-center gap-2 p-2 rounded cursor-pointer group ${selectedPersonId === person.id
-                                        ? 'bg-blue-600'
-                                        : 'hover:bg-gray-700'
+                                        ? 'bg-accent'
+                                        : 'hover:bg-surface-hover'
                                         }`}
                                     onClick={() => onSelectPerson?.(person.id)}
                                 >
                                     {/* Avatar placeholder */}
-                                    <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-sm font-medium">
+                                    <div className="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center text-sm font-medium text-text-primary">
                                         {person.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="truncate text-sm">{person.name}</div>
-                                        <div className="text-xs text-gray-400">
+                                        <div className="text-xs text-text-secondary">
                                             {person.face_count} photos
                                         </div>
                                     </div>
                                     {/* Hide button */}
-                                    <button
-                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded"
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="opacity-0 group-hover:opacity-100"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleHidePerson(person.id, true);
@@ -298,7 +302,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                         title="Hide person"
                                     >
                                         <EyeOff className="w-3 h-3" />
-                                    </button>
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -307,8 +311,8 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
 
                 {/* Hidden People */}
                 {showHidden && hiddenPeople.length > 0 && (
-                    <div className="p-3 border-b border-gray-700 bg-gray-800/30">
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                    <div className="p-3 border-b border-border-base bg-surface-raised">
+                        <h3 className="text-xs font-semibold text-text-secondary uppercase mb-2 flex items-center gap-1">
                             <EyeOff className="w-3 h-3" />
                             Hidden People ({hiddenPeople.length})
                         </h3>
@@ -316,26 +320,28 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                             {hiddenPeople.map((person) => (
                                 <div
                                     key={person.id}
-                                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-700/50 opacity-60 group"
+                                    className="flex items-center gap-2 p-2 rounded hover:bg-surface-hover opacity-60 group"
                                 >
                                     {/* Avatar placeholder */}
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm font-medium text-gray-400">
+                                    <div className="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center text-sm font-medium text-text-muted">
                                         {person.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="truncate text-sm text-gray-400">{person.name}</div>
-                                        <div className="text-xs text-gray-500">
+                                        <div className="truncate text-sm text-text-secondary">{person.name}</div>
+                                        <div className="text-xs text-text-muted">
                                             {person.face_count} photos
                                         </div>
                                     </div>
                                     {/* Unhide button */}
-                                    <button
-                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded text-green-400 hover:text-green-300"
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="opacity-0 group-hover:opacity-100 text-accent"
                                         onClick={() => handleHidePerson(person.id, false)}
                                         title="Unhide person"
                                     >
                                         <Eye className="w-3 h-3" />
-                                    </button>
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -346,36 +352,31 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                 {unidentifiedFaces.length > 0 && (
                     <div className="p-3">
                         <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xs font-semibold text-gray-400 uppercase">
+                            <h3 className="text-xs font-semibold text-text-secondary uppercase">
                                 Unknown Faces ({unidentifiedFaces.length})
                             </h3>
                             <div className="flex items-center gap-2">
-                                <button
+                                <Button
+                                    variant="link"
+                                    size="xs"
                                     onClick={handleCluster}
                                     disabled={isClustering}
-                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                    leftIcon={isClustering ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                                 >
-                                    {isClustering ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                        <Sparkles className="w-3 h-3" />
-                                    )}
                                     Group similar
-                                </button>
+                                </Button>
                                 {clusters.length > 0 && (
-                                    <button
+                                    <Button
+                                        size="sm"
+                                        variant={selectionMode ? 'primary' : 'secondary'}
                                         onClick={() => {
                                             setSelectionMode(!selectionMode);
                                             if (selectionMode) clearSelection();
                                         }}
-                                        className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${selectionMode
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                            }`}
+                                        leftIcon={<CheckSquare className="w-3 h-3" />}
                                     >
-                                        <CheckSquare className="w-3 h-3" />
                                         {selectionMode ? 'Cancel' : 'Select'}
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         </div>
@@ -385,14 +386,14 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                             <div className="space-y-3">
                                 {/* Clustering progress */}
                                 {isClustering && clusterProgress && (
-                                    <div className="bg-gray-700/50 rounded p-2">
-                                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                                    <div className="bg-surface-raised rounded p-2">
+                                        <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
                                             <span>Clustering faces...</span>
                                             <span>{clusterProgress.current}/{clusterProgress.total}</span>
                                         </div>
-                                        <div className="h-1 bg-gray-600 rounded overflow-hidden">
+                                        <div className="h-1 bg-surface-card rounded overflow-hidden">
                                             <div
-                                                className="h-full bg-blue-500 transition-all"
+                                                className="h-full bg-accent transition-all"
                                                 style={{ width: `${(clusterProgress.current / clusterProgress.total) * 100}%` }}
                                             />
                                         </div>
@@ -402,28 +403,29 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                 {clusters.slice(0, visibleClusterCount).map((cluster, idx) => (
                                     <div
                                         key={idx}
-                                        className="bg-gray-700/50 rounded p-2 hover:bg-gray-700/70 cursor-pointer transition-colors"
+                                        className="bg-surface-raised rounded p-2 hover:bg-surface-card cursor-pointer transition-colors"
                                         onClick={() => {
                                             if (!selectionMode) {
                                                 showCluster(cluster);
                                             }
                                         }}
                                     >
-                                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+                                        <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
                                             <span className="flex items-center gap-1">
                                                 Cluster {idx + 1} ({cluster.faceIds.length} faces)
                                                 <ChevronRight className="w-3 h-3" />
                                             </span>
                                             {selectionMode && (
-                                                <button
+                                                <Button
+                                                    variant="link"
+                                                    size="xs"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         selectAllInCluster(cluster.faceIds);
                                                     }}
-                                                    className="text-blue-400 hover:text-blue-300"
                                                 >
                                                     Select all
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
                                         <div className="flex flex-wrap gap-1">
@@ -441,7 +443,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                 />
                                             ))}
                                             {cluster.faceIds.length > 6 && (
-                                                <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs">
+                                                <div className="w-10 h-10 rounded bg-surface-card flex items-center justify-center text-xs text-text-primary">
                                                     +{cluster.faceIds.length - 6}
                                                 </div>
                                             )}
@@ -455,7 +457,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                         value={newPersonName}
                                                         onChange={(e) => setNewPersonName(e.target.value)}
                                                         placeholder="Name this person..."
-                                                        className="flex-1 px-2 py-1 text-sm bg-gray-800 border border-gray-600 rounded"
+                                                        className="flex-1 px-2 py-1 text-sm bg-surface-input border border-border-base rounded text-text-primary"
                                                         autoFocus
                                                         onKeyDown={(e) => {
                                                             if (e.key === 'Enter') {
@@ -466,31 +468,32 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                             }
                                                         }}
                                                     />
-                                                    <button
+                                                    <Button
+                                                        variant="primary"
+                                                        size="sm"
                                                         onClick={() => handleCreatePersonFromCluster(cluster.faceIds)}
-                                                        className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
                                                         title="Create new person"
                                                     >
                                                         <UserPlus className="w-4 h-4" />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                                 {/* Suggestions dropdown */}
                                                 {filteredSuggestions.length > 0 && (
-                                                    <div className="absolute z-10 top-full left-0 right-10 mt-1 bg-gray-700 border border-gray-600 rounded shadow-lg max-h-40 overflow-y-auto">
-                                                        <div className="px-2 py-1 text-xs text-gray-400 border-b border-gray-600">
+                                                    <div className="absolute z-10 top-full left-0 right-10 mt-1 bg-surface-card border border-border-base rounded shadow-lg max-h-40 overflow-y-auto">
+                                                        <div className="px-2 py-1 text-xs text-text-secondary border-b border-border-base">
                                                             Existing people:
                                                         </div>
                                                         {filteredSuggestions.map(person => (
                                                             <button
                                                                 key={person.id}
                                                                 onClick={() => selectExistingPerson(person.id)}
-                                                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-600 flex items-center gap-2"
+                                                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-surface-hover flex items-center gap-2 text-text-primary"
                                                             >
-                                                                <div className="w-5 h-5 rounded-full bg-gray-500 flex items-center justify-center text-xs">
+                                                                <div className="w-5 h-5 rounded-full bg-surface-raised flex items-center justify-center text-xs text-text-primary">
                                                                     {person.name.charAt(0).toUpperCase()}
                                                                 </div>
                                                                 <span>{person.name}</span>
-                                                                <span className="ml-auto text-xs text-gray-400">
+                                                                <span className="ml-auto text-xs text-text-secondary">
                                                                     {person.face_count} photo{person.face_count !== 1 ? 's' : ''}
                                                                 </span>
                                                             </button>
@@ -506,7 +509,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                 {clusters.length > visibleClusterCount && (
                                     <button
                                         onClick={() => setVisibleClusterCount(prev => prev + 10)}
-                                        className="w-full py-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-700/50 rounded"
+                                        className="w-full py-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 rounded"
                                     >
                                         Show more clusters ({clusters.length - visibleClusterCount} remaining)
                                     </button>
@@ -524,7 +527,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                     />
                                 ))}
                                 {unidentifiedFaces.length > 20 && (
-                                    <div className="aspect-square rounded bg-gray-700 flex items-center justify-center text-xs text-gray-400">
+                                    <div className="aspect-square rounded bg-surface-card flex items-center justify-center text-xs text-text-secondary">
                                         +{unidentifiedFaces.length - 20}
                                     </div>
                                 )}
@@ -539,7 +542,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                     value={newPersonName}
                                     onChange={(e) => setNewPersonName(e.target.value)}
                                     placeholder="Name this person..."
-                                    className="flex-1 px-2 py-1 text-sm bg-gray-800 border border-gray-600 rounded"
+                                    className="flex-1 px-2 py-1 text-sm bg-surface-input border border-border-base rounded text-text-primary"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
@@ -550,12 +553,13 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                         }
                                     }}
                                 />
-                                <button
+                                <Button
+                                    variant="primary"
+                                    size="sm"
                                     onClick={() => handleCreatePerson(namingFaceId)}
-                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
                                 >
                                     <UserPlus className="w-4 h-4" />
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -563,28 +567,30 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
 
                 {/* Empty state */}
                 {people.length === 0 && unidentifiedFaces.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
-                        <Users className="w-12 h-12 mb-2 opacity-50" />
-                        <p className="text-sm">No faces detected yet</p>
-                        <p className="text-xs mt-1">Import photos to detect faces</p>
-                    </div>
+                    <EmptyState
+                        icon={<Users size={36} />}
+                        title="No faces detected yet"
+                        description="Import photos to detect faces"
+                    />
                 )}
             </div>
 
             {/* Floating selection panel */}
             {selectedFaces.size > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-600 p-3 shadow-lg">
+                <div className="absolute bottom-0 left-0 right-0 bg-surface-card border-t border-border-base p-3 shadow-lg">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-300">
+                        <span className="text-sm text-text-secondary">
                             {selectedFaces.size} face{selectedFaces.size > 1 ? 's' : ''} selected
                         </span>
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={clearSelection}
-                            className="ml-auto text-gray-400 hover:text-white"
+                            className="ml-auto"
                             title="Clear selection"
                         >
                             <X className="w-4 h-4" />
-                        </button>
+                        </Button>
                     </div>
                     {showNameInput ? (
                         <div className="relative mt-2">
@@ -594,38 +600,39 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                     value={newPersonName}
                                     onChange={(e) => setNewPersonName(e.target.value)}
                                     placeholder="Enter name..."
-                                    className="flex-1 px-3 py-2 text-sm bg-gray-700 border border-gray-600 rounded focus:border-blue-500 focus:outline-none"
+                                    className="flex-1 px-3 py-2 text-sm bg-surface-input border border-border-base rounded focus:border-accent focus:outline-none text-text-primary"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') handleNameSelected();
                                         if (e.key === 'Escape') setShowNameInput(false);
                                     }}
                                 />
-                                <button
+                                <Button
+                                    variant="primary"
+                                    size="sm"
                                     onClick={handleNameSelected}
                                     disabled={!newPersonName.trim()}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-sm font-medium"
                                 >
                                     Save
-                                </button>
+                                </Button>
                             </div>
                             {/* Suggestions dropdown */}
                             {filteredSuggestions.length > 0 && (
-                                <div className="absolute z-10 bottom-full left-0 right-16 mb-1 bg-gray-700 border border-gray-600 rounded shadow-lg max-h-40 overflow-y-auto">
-                                    <div className="px-2 py-1 text-xs text-gray-400 border-b border-gray-600">
+                                <div className="absolute z-10 bottom-full left-0 right-16 mb-1 bg-surface-card border border-border-base rounded shadow-lg max-h-40 overflow-y-auto">
+                                    <div className="px-2 py-1 text-xs text-text-secondary border-b border-border-base">
                                         Existing people:
                                     </div>
                                     {filteredSuggestions.map(person => (
                                         <button
                                             key={person.id}
                                             onClick={() => selectExistingPerson(person.id)}
-                                            className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-600 flex items-center gap-2"
+                                            className="w-full text-left px-2 py-1.5 text-sm hover:bg-surface-hover flex items-center gap-2 text-text-primary"
                                         >
-                                            <div className="w-5 h-5 rounded-full bg-gray-500 flex items-center justify-center text-xs">
+                                            <div className="w-5 h-5 rounded-full bg-surface-raised flex items-center justify-center text-xs text-text-primary">
                                                 {person.name.charAt(0).toUpperCase()}
                                             </div>
                                             <span>{person.name}</span>
-                                            <span className="ml-auto text-xs text-gray-400">
+                                            <span className="ml-auto text-xs text-text-secondary">
                                                 {person.face_count} photo{person.face_count !== 1 ? 's' : ''}
                                             </span>
                                         </button>
@@ -634,13 +641,15 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                             )}
                         </div>
                     ) : (
-                        <button
+                        <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => setShowNameInput(true)}
-                            className="w-full mt-2 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium flex items-center justify-center gap-2"
+                            className="w-full mt-2"
+                            leftIcon={<UserPlus className="w-4 h-4" />}
                         >
-                            <UserPlus className="w-4 h-4" />
                             Name Selected Faces
-                        </button>
+                        </Button>
                     )}
                 </div>
             )}

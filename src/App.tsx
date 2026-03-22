@@ -1,22 +1,45 @@
-import React, { useEffect, useMemo } from 'react'
-import type { FileInfo, LightAdjustments, ColorAdjustments } from '../shared/types'
+import React, { useEffect, useMemo, useRef } from 'react'
+import type { FileInfo, ImageAdjustments, LightAdjustments, ColorAdjustments } from '../shared/types'
 import { LibraryPanel } from './components/panels/LibraryPanel'
 import { RightPanel } from './components/panels/RightPanel'
+import { AIEditorPanel } from './components/panels/AIEditorPanel'
 import { PeoplePanel } from './components/panels/PeoplePanel'
 import { DuplicatesPanel } from './components/panels/DuplicatesPanel'
 import { Filmstrip } from './components/panels/Filmstrip'
 import { ImagePreview } from './components/layout/ImagePreview'
+import type { ImageViewerHandle } from './components/viewer/ImageViewer'
 import { ResizableLayout } from './components/layout/ResizableLayout'
+import ToolSidebar from './components/layout/ToolSidebar'
+import CropToolbar from './components/tools/CropToolbar'
+import { BrushSettingsPanel } from './components/tools/BrushSettingsPanel'
+import { MaskSelectionPanel } from './components/tools/MaskSelectionPanel'
+import { TextOverlayPanel } from './components/tools/TextOverlayPanel'
+import { LayersPanel } from './components/tools/LayersPanel'
+import { ImageInfoPanel } from './components/panels/ImageInfoPanel'
 import { FloatingActionBar } from './components/FloatingActionBar'
 import { PickModeHeader } from './components/PickModeHeader'
 import { CreateAlbumModal } from './components/CreateAlbumModal'
+import { AIConfigModal } from './components/modals/AIConfigModal'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useUIStore } from './store/useUIStore'
+import { useAIStore } from './store/useAIStore'
+import { useThemeStore } from './store/useThemeStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
 import { useCallback } from 'react'
 
 function App() {
+  // Initialize theme management
+  const { theme } = useThemeStore()
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+  }, [theme])
   // Initialize face detection processing (runs in background after imports)
   const faceDetectionStatus = useFaceDetection()
 
@@ -49,6 +72,12 @@ function App() {
     loadPresetsFromDisk()
   }, [loadPresetsFromDisk])
 
+  // Load AI config on startup
+  const { loadConfig: loadAIConfig } = useAIStore()
+  useEffect(() => {
+    loadAIConfig()
+  }, [loadAIConfig])
+
   // Get search state from library store
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
 
@@ -60,6 +89,8 @@ function App() {
   const [clusterFiles, setClusterFiles] = React.useState<FileInfo[]>([])
   const [histogramData, setHistogramData] = React.useState<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>(null)
   const [showCreateAlbumModal, setShowCreateAlbumModal] = React.useState(false)
+  const [imageDimensions, setImageDimensions] = React.useState({ width: 0, height: 0 })
+  const imageViewerRef = useRef<ImageViewerHandle>(null)
 
   // Handle person selection - load their photos
   const handleSelectPerson = async (personId: number) => {
@@ -208,6 +239,20 @@ function App() {
     }
   }, [selectedPath, updateColorAdjustment])
 
+  const handleApplyBuiltIn = useCallback((adj: Partial<ImageAdjustments>) => {
+    if (!selectedPath) return
+    if (adj.light) {
+      Object.entries(adj.light).forEach(([k, v]) =>
+        updateLightAdjustment(selectedPath, k as keyof LightAdjustments, v)
+      )
+    }
+    if (adj.color) {
+      Object.entries(adj.color).forEach(([k, v]) =>
+        updateColorAdjustment(selectedPath, k as keyof ColorAdjustments, v)
+      )
+    }
+  }, [selectedPath, updateLightAdjustment, updateColorAdjustment])
+
   const handleCopySettings = useCallback(() => {
     if (selectedPath) {
       copySettings(selectedPath)
@@ -241,6 +286,12 @@ function App() {
     showLibraryPanel,
     showDevelopPanel,
     showFilmstrip,
+    centerPanelMode,
+    setCenterPanelMode,
+    activeTool,
+    setActiveTool,
+    cropState,
+    setCropState,
     togglePanel,
     zoomIn,
     zoomOut,
@@ -341,69 +392,143 @@ function App() {
   }, [handleCopySettings, handlePasteSettings, handleResetSettings, togglePanel, zoomIn, zoomOut, zoomFit, toggleCompareMode, toggleBeforeAfter])
 
   return (
-    <div className="flex flex-col h-screen bg-[#1e1e1e] text-gray-300 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-[#1e1e1e] text-gray-700 dark:text-gray-300 font-sans overflow-hidden">
 
       {/* Pick Mode Header (shown when adding photos to album) */}
       <PickModeHeader />
 
-      {/* Top Main Area (Columns) */}
-      <ResizableLayout
-        leftPanel={
-          viewMode === 'people' || viewMode === 'cluster' ? (
-            <PeoplePanel
-              onSelectPerson={handleSelectPerson}
-              selectedPersonId={selectedPersonId}
-            />
-          ) : viewMode === 'duplicates' ? (
-            <DuplicatesPanel
-              onSelectImage={(path) => {
-                setSelectedFile({
-                  name: path.split('/').pop() || '',
-                  path,
-                  isDirectory: false,
-                  type: 'image',
-                })
-              }}
-            />
-          ) : showLibraryPanel ? (
-            <LibraryPanel
-              onSelectPerson={handleSelectPerson}
-              onClearPerson={() => {
-                setSelectedPersonId(null)
-                setPersonFiles([])
-              }}
-            />
-          ) : null
-        }
-        centerPanel={
-          <ImagePreview
-            selectedFile={selectedFile}
-            adjustments={currentAdjustments}
-            onHistogramChange={setHistogramData}
-            files={displayFiles}
-            onSelectFile={setSelectedFile}
-            totalPhotos={displayFiles.length > 0 ? displayFiles.length : stats.totalImages}
-          />
-        }
-        rightPanel={
-          showDevelopPanel ? (
-            <RightPanel
+      {/* Main Area: ToolSidebar + ResizableLayout */}
+      <div className="flex-1 flex min-h-0">
+        {/* Vertical tool sidebar on far left */}
+        <ToolSidebar
+          activeTool={activeTool}
+          onToolChange={(tool) => {
+            setActiveTool(tool as any)
+            // Only switch to grid when explicitly clicking select while already in grid,
+            // or when no image is selected. Otherwise stay in editor mode.
+            if (tool !== 'select') {
+              setCenterPanelMode('editor')
+            }
+          }}
+        />
+
+        {/* Three-panel resizable layout */}
+        <ResizableLayout
+          leftPanel={
+            centerPanelMode === 'editor' && showLibraryPanel ? (
+              activeTool === 'select' ? (
+                <ImageInfoPanel
+                  fileName={selectedFile?.name}
+                  filePath={selectedFile?.path}
+                  dimensions={imageDimensions}
+                />
+              ) : activeTool === 'ai' ? (
+                <AIEditorPanel
+                  selectedImagePath={selectedFile?.path ?? null}
+                  onApplyAdjustments={(adj) => {
+                    if (adj.light) {
+                      Object.entries(adj.light).forEach(([k, v]) =>
+                        handleLightChange(k as keyof LightAdjustments, v)
+                      )
+                    }
+                    if (adj.color) {
+                      Object.entries(adj.color).forEach(([k, v]) =>
+                        handleColorChange(k as keyof ColorAdjustments, v)
+                      )
+                    }
+                  }}
+                />
+              ) : activeTool === 'crop' ? (
+                <CropToolbar
+                  imageDimensions={imageDimensions}
+                  onRotate={() => {
+                    imageViewerRef.current?.applyRotate90()
+                  }}
+                  onFlip={() => {
+                    imageViewerRef.current?.applyFlipH()
+                  }}
+                  onApply={() => {
+                    const viewer = imageViewerRef.current
+                    if (viewer) {
+                      const { rect } = cropState
+                      if (rect.x !== 0 || rect.y !== 0 || rect.w < 0.99 || rect.h < 0.99) {
+                        viewer.applyCrop(rect)
+                      }
+                    }
+                    setCropState({ rect: { x: 0, y: 0, w: 1, h: 1 }, aspectRatio: 'freeform' })
+                  }}
+                  onCancel={() => {
+                    setCropState({ rect: { x: 0, y: 0, w: 1, h: 1 }, aspectRatio: 'freeform' })
+                  }}
+                />
+              ) : activeTool === 'brush' || activeTool === 'eraser' ? (
+                <BrushSettingsPanel />
+              ) : activeTool === 'pen' ? (
+                <MaskSelectionPanel />
+              ) : activeTool === 'text' ? (
+                <TextOverlayPanel />
+              ) : activeTool === 'layers' ? (
+                <LayersPanel onClose={() => {}} />
+              ) : null
+            ) : viewMode === 'people' || viewMode === 'cluster' ? (
+              <PeoplePanel
+                onSelectPerson={handleSelectPerson}
+                selectedPersonId={selectedPersonId}
+              />
+            ) : viewMode === 'duplicates' ? (
+              <DuplicatesPanel
+                onSelectImage={(path) => {
+                  setSelectedFile({
+                    name: path.split('/').pop() || '',
+                    path,
+                    isDirectory: false,
+                    type: 'image',
+                  })
+                }}
+              />
+            ) : showLibraryPanel ? (
+              <LibraryPanel
+                onSelectPerson={handleSelectPerson}
+                onClearPerson={() => {
+                  setSelectedPersonId(null)
+                  setPersonFiles([])
+                }}
+              />
+            ) : null
+          }
+          centerPanel={
+            <ImagePreview
+              ref={imageViewerRef}
+              selectedFile={selectedFile}
               adjustments={currentAdjustments}
-              onLightChange={handleLightChange}
-              onColorChange={handleColorChange}
-              onCopySettings={handleCopySettings}
-              onPasteSettings={handlePasteSettings}
-              onResetSettings={handleResetSettings}
-              hasClipboard={hasClipboard()}
-              presets={presets}
-              onApplyPreset={handleApplyPreset}
-              onSavePreset={handleSavePreset}
-              selectedImagePath={selectedFile?.path}
-              histogramData={histogramData}
+              onHistogramChange={setHistogramData}
+              onDimensionsChange={setImageDimensions}
+              files={displayFiles}
+              onSelectFile={setSelectedFile}
+              totalPhotos={displayFiles.length > 0 ? displayFiles.length : stats.totalImages}
             />
-          ) : null
-        }
-      />
+          }
+          rightPanel={
+            showDevelopPanel ? (
+              <RightPanel
+                adjustments={currentAdjustments}
+                onLightChange={handleLightChange}
+                onColorChange={handleColorChange}
+                onCopySettings={handleCopySettings}
+                onPasteSettings={handlePasteSettings}
+                onResetSettings={handleResetSettings}
+                hasClipboard={hasClipboard()}
+                presets={presets}
+                onApplyPreset={handleApplyPreset}
+                onSavePreset={handleSavePreset}
+                onApplyBuiltIn={handleApplyBuiltIn}
+                selectedImagePath={selectedFile?.path}
+                histogramData={histogramData}
+              />
+            ) : null
+          }
+        />
+      </div>
 
       {showFilmstrip && (
         <Filmstrip
@@ -421,6 +546,9 @@ function App() {
         isOpen={showCreateAlbumModal}
         onClose={() => setShowCreateAlbumModal(false)}
       />
+
+      {/* AI Config Modal */}
+      <AIConfigModal />
 
     </div>
   )

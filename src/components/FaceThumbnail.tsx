@@ -75,12 +75,12 @@ export function FaceThumbnail({
             style={{ width: size, height: size }}
         >
             {isLoading ? (
-                <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
-                    <span className="text-xs text-gray-500">{faceId}</span>
+                <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700 animate-pulse flex items-center justify-center">
+                    <span className="text-xs text-gray-600 dark:text-gray-500">{faceId}</span>
                 </div>
             ) : error || !thumbnailUrl ? (
-                <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-                    <span className="text-xs text-gray-500">?</span>
+                <div className="absolute inset-0 bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
+                    <span className="text-xs text-gray-600 dark:text-gray-500">?</span>
                 </div>
             ) : (
                 <img
@@ -93,11 +93,11 @@ export function FaceThumbnail({
             {/* Selection checkbox overlay */}
             {selectable && (
                 <div className={`
-                    absolute top-1 right-1 w-5 h-5 rounded-full border-2 
+                    absolute top-1 right-1 w-5 h-5 rounded-full border-2
                     flex items-center justify-center transition-all
                     ${selected
                         ? 'bg-blue-500 border-blue-500'
-                        : 'bg-gray-800/60 border-gray-400 hover:border-blue-400'
+                        : 'bg-gray-700 dark:bg-gray-800/60 border-gray-500 dark:border-gray-400 hover:border-blue-500 dark:hover:border-blue-400'
                     }
                 `}>
                     {selected && <Check className="w-3 h-3 text-white" />}
