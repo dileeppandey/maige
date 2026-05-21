@@ -29,6 +29,9 @@ serde_json = "1"
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# Image crate for thumbnail generation in database
+image = { version = "0.24", features = ["jpeg", "png", "webp", "tiff", "gif", "bmp"] }
+
 # Error handling
 anyhow = "1.0"
 
