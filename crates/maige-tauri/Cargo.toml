@@ -1,40 +1,38 @@
 [package]
 name = "maige"
 version = "0.1.0"
-description = "A professional image editor"
+description = "Maige — professional desktop image editor (Tauri shell)"
 authors = ["Dileep Pandey"]
 license = "MIT"
-repository = ""
 edition = "2021"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Core image processing — all pixel work lives in maige-core
+maige-core = { path = "../maige-core" }
+
+# Tauri runtime + plugins
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+
+# Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# Image processing - algorithms mirror maige-core/src/adjustments.rs
-image = { version = "0.24", features = ["jpeg", "png", "webp", "tiff", "gif", "bmp"] }
-rayon = "1.10"
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
 
-# Hashing
-sha2 = "0.10"
-img_hash = "3.2"
-
 # Error handling
-thiserror = "1.0"
 anyhow = "1.0"
 
-# Base64 encoding
+# Base64 (face thumbnail encoding)
 base64 = "0.22"
 
 [features]

@@ -63,6 +63,7 @@ declare global {
             // Export operations
             showExportSaveDialog: (defaultPath: string, format: 'jpeg' | 'png') => Promise<string | null>;
             exportImage: (options: { sourcePath: string; outputPath: string; adjustments: ImageAdjustments; format: 'jpeg' | 'png'; quality: number }) => Promise<{ success: boolean; path?: string; error?: string }>;
+            getHistogram: (filePath: string, adjustments: ImageAdjustments) => Promise<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null>;
 
             // Preset operations
             loadPresets: () => Promise<unknown[]>;

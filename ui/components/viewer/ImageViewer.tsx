@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
 import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
-import { useCanvasProcessor } from '../../hooks/useCanvasProcessor'
+import { useImageViewer } from '../../hooks/useImageViewer'
 import { ExportModal } from '../ExportModal'
 import type { ImageAdjustments } from '../../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
@@ -46,8 +46,9 @@ export function ImageViewer({
         showOriginal,
         showProcessed,
         isShowingOriginal,
-    } = useCanvasProcessor({
+    } = useImageViewer({
         src,
+        filePath,
         adjustments
     })
 

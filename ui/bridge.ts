@@ -443,6 +443,18 @@ const apiImpl = {
         }
     },
 
+    getHistogram: async (filePath: string, adjustments: unknown): Promise<{ r: number[]; g: number[]; b: number[]; lum: number[] } | null> => {
+        try {
+            return await invoke<{ r: number[]; g: number[]; b: number[]; lum: number[] }>('get_histogram', {
+                path: filePath,
+                adjustments,
+            });
+        } catch (e) {
+            console.error('getHistogram error:', e);
+            return null;
+        }
+    },
+
     // ================== Export Operations ==================
 
     showExportSaveDialog: async (defaultPath: string, format: string): Promise<string | null> => {
