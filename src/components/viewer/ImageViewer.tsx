@@ -7,6 +7,7 @@ import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 
 interface ImageViewerProps {
     src: string
+    filePath?: string
     adjustments?: ImageAdjustments
     onHistogramChange?: (data: { r: number[]; g: number[]; b: number[]; lum: number[] } | null) => void
 }
@@ -17,6 +18,7 @@ const ZOOM_STEP = 0.25
 
 export function ImageViewer({
     src,
+    filePath,
     adjustments = DEFAULT_IMAGE_ADJUSTMENTS,
     onHistogramChange
 }: ImageViewerProps) {
@@ -44,7 +46,6 @@ export function ImageViewer({
         showOriginal,
         showProcessed,
         isShowingOriginal,
-        getCanvasDataUrl
     } = useCanvasProcessor({
         src,
         adjustments
@@ -378,8 +379,8 @@ export function ImageViewer({
             <ExportModal
                 isOpen={isExportModalOpen}
                 onClose={() => setIsExportModalOpen(false)}
-                originalFileName={src}
-                getCanvasDataUrl={getCanvasDataUrl}
+                imagePath={filePath ?? src}
+                adjustments={adjustments}
             />
         </div>
     )

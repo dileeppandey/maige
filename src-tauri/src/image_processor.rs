@@ -1,6 +1,6 @@
 //! Image processing module
-//! 
-//! Native Rust image processing replacing Sharp
+//!
+//! Adjustment algorithms mirror maige-core/src/adjustments.rs. Keep them in sync.
 
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use rayon::prelude::*;
@@ -11,6 +11,54 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::database::AnalyzedImage;
+
+/// Light adjustments
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LightAdjustments {
+    #[serde(default)]
+    pub exposure: f64,
+    #[serde(default)]
+    pub contrast: f64,
+    #[serde(default)]
+    pub highlights: f64,
+    #[serde(default)]
+    pub shadows: f64,
+    #[serde(default)]
+    pub whites: f64,
+    #[serde(default)]
+    pub blacks: f64,
+}
+
+/// Color adjustments
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ColorAdjustments {
+    #[serde(default)]
+    pub temperature: f64,
+    #[serde(default)]
+    pub tint: f64,
+    #[serde(default)]
+    pub saturation: f64,
+    #[serde(default)]
+    pub vibrance: f64,
+}
+
+/// Combined adjustments
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Adjustments {
+    #[serde(default)]
+    pub light: LightAdjustments,
+    #[serde(default)]
+    pub color: ColorAdjustments,
+}
+
+/// Histogram data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Histogram {
+    pub r: Vec<u32>,
+    pub g: Vec<u32>,
+    pub b: Vec<u32>,
+    pub lum: Vec<u32>,
+}
 
 /// Image extensions we support
 const IMAGE_EXTENSIONS: &[&str] = &[
@@ -36,42 +84,6 @@ pub struct ImageMetadata {
     pub shutter_speed: Option<String>,
 }
 
-/// Histogram data
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Histogram {
-    pub r: Vec<u32>,
-    pub g: Vec<u32>,
-    pub b: Vec<u32>,
-    pub lum: Vec<u32>,
-}
-
-/// Light adjustments
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct LightAdjustments {
-    pub exposure: f64,
-    pub contrast: f64,
-    pub highlights: f64,
-    pub shadows: f64,
-    pub whites: f64,
-    pub blacks: f64,
-}
-
-/// Color adjustments
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ColorAdjustments {
-    pub temperature: f64,
-    pub tint: f64,
-    pub saturation: f64,
-    pub vibrance: f64,
-}
-
-/// Combined adjustments
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Adjustments {
-    pub light: LightAdjustments,
-    pub color: ColorAdjustments,
-}
-
 /// Scan directory for images
 pub async fn scan_directory(dir_path: &str) -> anyhow::Result<Vec<String>> {
     let mut images = Vec::new();
@@ -83,17 +95,16 @@ fn scan_dir_recursive(dir: &Path, images: &mut Vec<String>) -> anyhow::Result<()
     if !dir.is_dir() {
         return Ok(());
     }
-    
+
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         if path.is_dir() {
-            // Skip hidden directories
             if !path.file_name()
                 .and_then(|n| n.to_str())
                 .map(|n| n.starts_with('.'))
-                .unwrap_or(false) 
+                .unwrap_or(false)
             {
                 scan_dir_recursive(&path, images)?;
             }
@@ -105,7 +116,7 @@ fn scan_dir_recursive(dir: &Path, images: &mut Vec<String>) -> anyhow::Result<()
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -113,17 +124,15 @@ fn scan_dir_recursive(dir: &Path, images: &mut Vec<String>) -> anyhow::Result<()
 pub async fn get_metadata(path: &str) -> anyhow::Result<ImageMetadata> {
     let img = image::open(path)?;
     let (width, height) = img.dimensions();
-    
+
     let format = Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("unknown")
         .to_lowercase();
-    
+
     let has_alpha = Some(img.color().has_alpha());
-    
-    // TODO: Extract EXIF data using kamadak-exif
-    
+
     Ok(ImageMetadata {
         width,
         height,
@@ -143,26 +152,24 @@ pub async fn get_metadata(path: &str) -> anyhow::Result<ImageMetadata> {
 /// Generate perceptual hash (dHash)
 pub async fn generate_phash(path: &str) -> anyhow::Result<String> {
     let img = image::open(path)?;
-    
-    // Resize to 9x8 grayscale
+
     let resized = img.resize_exact(9, 8, image::imageops::FilterType::Lanczos3);
     let gray = resized.to_luma8();
-    
+
     let mut hash: u64 = 0;
     let mut bit_index = 0;
-    
+
     for y in 0..8 {
         for x in 0..8 {
             let left = gray.get_pixel(x, y)[0];
             let right = gray.get_pixel(x + 1, y)[0];
-            
             if left > right {
                 hash |= 1 << bit_index;
             }
             bit_index += 1;
         }
     }
-    
+
     Ok(format!("{:016x}", hash))
 }
 
@@ -171,7 +178,7 @@ fn calculate_file_hash(path: &str) -> anyhow::Result<String> {
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 8192];
-    
+
     loop {
         let bytes_read = file.read(&mut buffer)?;
         if bytes_read == 0 {
@@ -179,7 +186,7 @@ fn calculate_file_hash(path: &str) -> anyhow::Result<String> {
         }
         hasher.update(&buffer[..bytes_read]);
     }
-    
+
     Ok(format!("{:x}", hasher.finalize()))
 }
 
@@ -188,14 +195,14 @@ pub async fn analyze_image(path: &str) -> anyhow::Result<AnalyzedImage> {
     let metadata = get_metadata(path).await?;
     let phash = generate_phash(path).await?;
     let file_hash = calculate_file_hash(path)?;
-    
+
     let file_meta = fs::metadata(path)?;
     let file_name = Path::new(path)
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
-    
+
     Ok(AnalyzedImage {
         file_path: path.to_string(),
         file_name,
@@ -211,24 +218,22 @@ pub async fn analyze_image(path: &str) -> anyhow::Result<AnalyzedImage> {
     })
 }
 
-/// Process image with adjustments
+/// Process image with adjustments, returning the raw RGBA buffer
 pub async fn process(path: &str, adjustments: &Adjustments) -> anyhow::Result<Vec<u8>> {
     let img = image::open(path)?;
     let rgba = img.to_rgba8();
     let mut buffer: Vec<u8> = rgba.into_raw();
-    
     apply_adjustments(&mut buffer, adjustments);
-    
     Ok(buffer)
 }
 
-/// Get histogram for image
+/// Get histogram for an image with adjustments applied
 pub async fn get_histogram(path: &str, adjustments: &Adjustments) -> anyhow::Result<Histogram> {
     let buffer = process(path, adjustments).await?;
     Ok(generate_histogram(&buffer))
 }
 
-/// Export image with adjustments
+/// Export image with adjustments to a file
 pub async fn export(
     source_path: &str,
     output_path: &str,
@@ -240,15 +245,15 @@ pub async fn export(
     let (width, height) = img.dimensions();
     let rgba = img.to_rgba8();
     let mut buffer: Vec<u8> = rgba.into_raw();
-    
+
     apply_adjustments(&mut buffer, adjustments);
-    
+
     let img_buffer: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(width, height, buffer)
             .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer"))?;
-    
+
     let output = DynamicImage::ImageRgba8(img_buffer);
-    
+
     match format.to_lowercase().as_str() {
         "jpg" | "jpeg" => {
             let rgb = output.to_rgb8();
@@ -260,91 +265,140 @@ pub async fn export(
             output.save(output_path)?;
         }
     }
-    
+
     Ok(())
 }
 
-/// Apply adjustments to RGBA buffer (parallel processing)
-fn apply_adjustments(buffer: &mut [u8], adjustments: &Adjustments) {
-    let light = &adjustments.light;
-    let color = &adjustments.color;
-    
-    // Check if any adjustments are non-zero
-    let has_adjustments = 
+// ============================================================================
+// Adjustment algorithms (mirror of maige-core/src/adjustments.rs)
+// Values range from -100 to 100, with 0 meaning no change.
+// CIE luminance: 0.2126R + 0.7152G + 0.0722B
+// ============================================================================
+
+#[inline(always)]
+fn get_luminance(r: f64, g: f64, b: f64) -> f64 {
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+fn apply_adjustments(buffer: &mut [u8], adj: &Adjustments) {
+    let light = &adj.light;
+    let color = &adj.color;
+
+    let has_adjustments =
         light.exposure != 0.0 || light.contrast != 0.0 ||
         light.highlights != 0.0 || light.shadows != 0.0 ||
         light.whites != 0.0 || light.blacks != 0.0 ||
         color.temperature != 0.0 || color.tint != 0.0 ||
         color.saturation != 0.0 || color.vibrance != 0.0;
-    
+
     if !has_adjustments {
         return;
     }
-    
+
     buffer.par_chunks_mut(4).for_each(|pixel| {
         let mut r = pixel[0] as f64;
         let mut g = pixel[1] as f64;
         let mut b = pixel[2] as f64;
-        
-        // Exposure
+
+        // Exposure: EV-style scaling (-100 = -4 EV, +100 = +4 EV)
         if light.exposure != 0.0 {
-            let ev = light.exposure / 25.0;
-            let mult = 2.0_f64.powf(ev);
-            r *= mult;
-            g *= mult;
-            b *= mult;
+            let mult = 2.0_f64.powf(light.exposure / 25.0);
+            r *= mult; g *= mult; b *= mult;
         }
-        
-        // Contrast
+
+        // Contrast: pivot at 128
         if light.contrast != 0.0 {
-            let factor = (light.contrast + 100.0) / 100.0;
-            let factor = factor.clamp(0.5, 2.0);
+            let factor = ((light.contrast + 100.0) / 100.0).clamp(0.5, 2.0);
             r = (r - 128.0) * factor + 128.0;
             g = (g - 128.0) * factor + 128.0;
             b = (b - 128.0) * factor + 128.0;
         }
-        
-        // Temperature
+
+        // Highlights: only pixels with luminance > 0.5
+        if light.highlights != 0.0 {
+            let lum = get_luminance(r, g, b) / 255.0;
+            if lum > 0.5 {
+                let weight = (lum - 0.5) * 2.0;
+                let delta = light.highlights / 100.0 * weight * 50.0;
+                r += delta; g += delta; b += delta;
+            }
+        }
+
+        // Shadows: only pixels with luminance < 0.5
+        if light.shadows != 0.0 {
+            let lum = get_luminance(r, g, b) / 255.0;
+            if lum < 0.5 {
+                let weight = (0.5 - lum) * 2.0;
+                let delta = light.shadows / 100.0 * weight * 50.0;
+                r += delta; g += delta; b += delta;
+            }
+        }
+
+        // Whites: top 25% of luminance range
+        if light.whites != 0.0 {
+            let lum = get_luminance(r, g, b) / 255.0;
+            if lum > 0.75 {
+                let weight = (lum - 0.75) * 4.0;
+                let delta = light.whites / 100.0 * weight * 30.0;
+                r += delta; g += delta; b += delta;
+            }
+        }
+
+        // Blacks: bottom 25% of luminance range
+        if light.blacks != 0.0 {
+            let lum = get_luminance(r, g, b) / 255.0;
+            if lum < 0.25 {
+                let weight = (0.25 - lum) * 4.0;
+                let delta = light.blacks / 100.0 * weight * 30.0;
+                r += delta; g += delta; b += delta;
+            }
+        }
+
+        // Temperature: shift R/B channels (+warm, -cool)
         if color.temperature != 0.0 {
             let amt = color.temperature / 100.0 * 30.0;
-            r += amt;
-            b -= amt;
+            r += amt; b -= amt;
         }
-        
-        // Saturation
-        if color.saturation != 0.0 {
-            let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            let factor = 1.0 + (color.saturation / 100.0);
+
+        // Tint: shift G channel (+magenta, -green)
+        if color.tint != 0.0 {
+            g -= color.tint / 100.0 * 20.0;
+        }
+
+        // Saturation + Vibrance (combined)
+        if color.saturation != 0.0 || color.vibrance != 0.0 {
+            let lum = get_luminance(r, g, b);
+            let max_c = r.max(g).max(b);
+            let min_c = r.min(g).min(b);
+            let current_sat = if max_c > 0.0 { (max_c - min_c) / max_c } else { 0.0 };
+            let vibrance_boost = color.vibrance / 100.0 * (1.0 - current_sat);
+            let factor = (1.0 + (color.saturation / 100.0) + vibrance_boost).max(0.0);
             r = lum + (r - lum) * factor;
             g = lum + (g - lum) * factor;
             b = lum + (b - lum) * factor;
         }
-        
-        // Clamp and write back
+
         pixel[0] = r.clamp(0.0, 255.0) as u8;
         pixel[1] = g.clamp(0.0, 255.0) as u8;
         pixel[2] = b.clamp(0.0, 255.0) as u8;
+        // pixel[3] (alpha) is preserved
     });
 }
 
-/// Generate histogram from RGBA buffer
 fn generate_histogram(buffer: &[u8]) -> Histogram {
     let mut r = vec![0u32; 256];
     let mut g = vec![0u32; 256];
     let mut b = vec![0u32; 256];
     let mut lum = vec![0u32; 256];
-    
+
     for pixel in buffer.chunks(4) {
-        if pixel.len() < 3 {
-            continue;
-        }
+        if pixel.len() < 3 { continue; }
         r[pixel[0] as usize] += 1;
         g[pixel[1] as usize] += 1;
         b[pixel[2] as usize] += 1;
-        
-        let l = (0.2126 * pixel[0] as f64 + 0.7152 * pixel[1] as f64 + 0.0722 * pixel[2] as f64) as usize;
+        let l = get_luminance(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64) as usize;
         lum[l.min(255)] += 1;
     }
-    
+
     Histogram { r, g, b, lum }
 }

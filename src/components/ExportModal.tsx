@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { X, Download } from 'lucide-react'
 import { useLibraryStore } from '../store/useLibraryStore'
+import type { ImageAdjustments } from '../../shared/types'
+import { DEFAULT_COLOR_ADJUSTMENTS } from '../../shared/types'
 
 interface ExportModalProps {
     isOpen: boolean
     onClose: () => void
-    originalFileName: string
-    getCanvasDataUrl: (format: 'image/jpeg' | 'image/png', quality: number) => string | null
+    imagePath: string
+    adjustments: ImageAdjustments
 }
 
 export function ExportModal({
     isOpen,
     onClose,
-    originalFileName,
-    getCanvasDataUrl
+    imagePath,
+    adjustments
 }: ExportModalProps) {
     const [format, setFormat] = useState<'jpeg' | 'png'>('jpeg')
     const [quality, setQuality] = useState(90)
@@ -30,51 +32,37 @@ export function ExportModal({
         setIsExporting(true)
 
         try {
-            // Get canvas data
-            const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png'
-            const dataUrl = getCanvasDataUrl(mimeType, quality / 100)
-
-            if (!dataUrl) {
-                setError('Failed to capture image data')
-                setIsExporting(false)
-                return
-            }
-
-            // Determine output path
             let outputPath: string | null
 
             if (overwrite) {
-                // Use original path
-                outputPath = originalFileName
+                outputPath = imagePath
             } else {
-                // Show save dialog
-                const baseName = originalFileName.replace(/\.[^.]+$/, '')
+                const baseName = imagePath.replace(/\.[^.]+$/, '')
                 const extension = format === 'jpeg' ? 'jpg' : 'png'
                 const defaultPath = `${baseName}_edited.${extension}`
-
                 outputPath = await window.api.showExportSaveDialog(defaultPath, format)
             }
 
             if (!outputPath) {
                 setIsExporting(false)
-                return // User cancelled
+                return
             }
 
-            // Export image
             const result = await window.api.exportImage({
-                dataUrl,
+                sourcePath: imagePath,
                 outputPath,
+                adjustments: {
+                    light: adjustments.light,
+                    color: adjustments.color ?? DEFAULT_COLOR_ADJUSTMENTS,
+                },
                 format,
-                quality
+                quality,
             })
 
             if (result.success) {
-                // Invalidate image cache so the updated image is shown
                 invalidateImageCache()
                 setSuccess(`Saved to: ${result.path}`)
-                setTimeout(() => {
-                    onClose()
-                }, 1500)
+                setTimeout(() => { onClose() }, 1500)
             } else {
                 setError(result.error || 'Export failed')
             }

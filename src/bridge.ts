@@ -41,6 +41,12 @@ interface Stats {
     duplicateGroups: number;
 }
 
+interface FaceCluster {
+    centroidFaceId: number;
+    faceIds: number[];
+    suggestedName?: string;
+}
+
 const apiImpl = {
     // ================== Folder Operations ==================
 
@@ -90,7 +96,6 @@ const apiImpl = {
     getStats: async (): Promise<Stats> => {
         try {
             const images = await invoke<LibraryImage[]>('get_all_images');
-            const albums = await invoke<Album[]>('get_albums');
             return {
                 totalImages: images.length,
                 duplicateGroups: 0,
@@ -282,8 +287,105 @@ const apiImpl = {
         }
     },
 
-    clusterFaces: async (): Promise<{ clusters: string[][]; noise: string[] }> => {
-        return { clusters: [], noise: [] };
+    clusterFaces: async (): Promise<FaceCluster[]> => {
+        try {
+            const rawFaces = await invoke<Array<{ id: number; image_path: string }>>('get_unidentified_faces');
+            if (rawFaces.length === 0) return [];
+
+            const images = await invoke<LibraryImage[]>('get_all_images');
+            const phashMap = new Map<string, string>();
+            for (const img of images) {
+                if (img.file_path && img.phash) {
+                    phashMap.set(img.file_path, img.phash);
+                }
+            }
+
+            const getHammingDistance = (hash1: string, hash2: string): number => {
+                if (hash1.length !== hash2.length) return 99;
+                let dist = 0;
+                for (let i = 0; i < hash1.length; i++) {
+                    const v1 = parseInt(hash1[i], 16);
+                    const v2 = parseInt(hash2[i], 16);
+                    let xor = v1 ^ v2;
+                    while (xor > 0) {
+                        if (xor & 1) dist++;
+                        xor >>= 1;
+                    }
+                }
+                return dist;
+            };
+
+            const n = rawFaces.length;
+            const parent = Array.from({ length: n }, (_, i) => i);
+
+            const find = (x: number): number => {
+                if (parent[x] !== x) {
+                    parent[x] = find(parent[x]);
+                }
+                return parent[x];
+            };
+
+            const union = (x: number, y: number) => {
+                const rx = find(x);
+                const ry = find(y);
+                if (rx !== ry) {
+                    parent[rx] = ry;
+                }
+            };
+
+            for (let i = 0; i < n; i++) {
+                const faceI = rawFaces[i];
+                const hashI = phashMap.get(faceI.image_path);
+                if (!hashI) continue;
+
+                for (let j = i + 1; j < n; j++) {
+                    const faceJ = rawFaces[j];
+                    if (faceI.image_path === faceJ.image_path) continue;
+
+                    const hashJ = phashMap.get(faceJ.image_path);
+                    if (!hashJ) continue;
+
+                    const dist = getHammingDistance(hashI, hashJ);
+                    if (dist <= 8) {
+                        union(i, j);
+                    }
+                }
+            }
+
+            const groups = new Map<number, number[]>();
+            for (let i = 0; i < n; i++) {
+                const root = find(i);
+                if (!groups.has(root)) {
+                    groups.set(root, []);
+                }
+                groups.get(root)!.push(rawFaces[i].id);
+            }
+
+            const clusters: FaceCluster[] = [];
+            let clusterCounter = 1;
+            for (const [rootIdx, faceIds] of groups.entries()) {
+                const centroidId = rawFaces[rootIdx].id;
+                const centroidPath = rawFaces[rootIdx].image_path;
+                let folderName = 'Unknown';
+                if (centroidPath) {
+                    const parts = centroidPath.split(/[\\/]/);
+                    if (parts.length > 1) {
+                        folderName = parts[parts.length - 2];
+                    }
+                }
+
+                clusters.push({
+                    centroidFaceId: centroidId,
+                    faceIds: faceIds,
+                    suggestedName: `Cluster ${clusterCounter++} (${folderName})`
+                });
+            }
+
+            return clusters;
+        } catch (e) {
+            console.error('clusterFaces error:', e);
+            return [];
+        }
     },
 
     createPersonFromFace: async (faceId: string, name: string): Promise<Person> => {
@@ -359,20 +461,15 @@ const apiImpl = {
         }
     },
 
-    exportImage: async (options: { dataUrl: string; outputPath: string; format: string; quality: number }): Promise<{ success: boolean; path?: string; error?: string }> => {
+    exportImage: async (options: { sourcePath: string; outputPath: string; adjustments: { light: object; color: object }; format: string; quality: number }): Promise<{ success: boolean; path?: string; error?: string }> => {
         try {
-            // Convert data URL to binary
-            const base64 = options.dataUrl.split(',')[1];
-            const binaryStr = atob(base64);
-            const bytes = new Uint8Array(binaryStr.length);
-            for (let i = 0; i < binaryStr.length; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
-            }
-
-            // Write file using Tauri fs plugin
-            const { writeFile } = await import('@tauri-apps/plugin-fs');
-            await writeFile(options.outputPath, bytes);
-
+            await invoke('export_image', {
+                sourcePath: options.sourcePath,
+                outputPath: options.outputPath,
+                adjustments: options.adjustments,
+                format: options.format,
+                quality: options.quality,
+            });
             return { success: true, path: options.outputPath };
         } catch (e) {
             console.error('exportImage error:', e);
@@ -387,8 +484,6 @@ const apiImpl = {
             await invoke('save_presets', { presets });
         } catch (e) {
             console.error('savePresets error:', e);
-            // Fallback to localStorage
-            localStorage.setItem('maige_presets', JSON.stringify(presets));
         }
     },
 
@@ -397,13 +492,7 @@ const apiImpl = {
             return await invoke<unknown[]>('load_presets');
         } catch (e) {
             console.error('loadPresets error:', e);
-            // Fallback to localStorage
-            try {
-                const stored = localStorage.getItem('maige_presets');
-                return stored ? JSON.parse(stored) : [];
-            } catch {
-                return [];
-            }
+            return [];
         }
     },
 

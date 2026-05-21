@@ -29,7 +29,9 @@ pub struct ColorAdjustments {
 /// Combined adjustments
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Adjustments {
+    #[serde(default)]
     pub light: LightAdjustments,
+    #[serde(default)]
     pub color: ColorAdjustments,
 }
 

@@ -1,4 +1,4 @@
-import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats, AlbumRecord, ImageRecord } from '../shared/types';
+import { FileInfo, LibraryImage, DuplicateGroup, LibraryStats, ImportProgress, ImportResult, TagInfo, SearchResult, FaceRecord, PersonRecord, FaceCluster, FaceDetection, FaceDetectionResult, FaceStats, AlbumRecord, ImageRecord, ImageAdjustments } from '../shared/types';
 
 export { };
 
@@ -62,7 +62,7 @@ declare global {
 
             // Export operations
             showExportSaveDialog: (defaultPath: string, format: 'jpeg' | 'png') => Promise<string | null>;
-            exportImage: (options: { dataUrl: string; outputPath: string; format: 'jpeg' | 'png'; quality: number }) => Promise<{ success: boolean; path?: string; error?: string }>;
+            exportImage: (options: { sourcePath: string; outputPath: string; adjustments: ImageAdjustments; format: 'jpeg' | 'png'; quality: number }) => Promise<{ success: boolean; path?: string; error?: string }>;
 
             // Preset operations
             loadPresets: () => Promise<unknown[]>;

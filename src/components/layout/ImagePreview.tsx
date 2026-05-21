@@ -75,6 +75,7 @@ export function ImagePreview({
             {selectedFile ? (
                 <ImageViewer
                     src={assetUrl(selectedFile.path, imageCacheVersion)}
+                    filePath={selectedFile.path}
                     adjustments={adjustments}
                     onHistogramChange={onHistogramChange}
                 />
