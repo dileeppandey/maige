@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/maige-core",
+    "crates/maige-tauri",
+]
+
+# Shared profile settings inherited by all members
+[profile.dev]
+opt-level = 1        # Slightly better perf in dev without full debug overhead
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

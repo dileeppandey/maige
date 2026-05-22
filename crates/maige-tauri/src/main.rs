@@ -6,7 +6,6 @@
 
 mod commands;
 mod database;
-mod image_processor;
 
 use tauri::{AppHandle, Emitter};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};

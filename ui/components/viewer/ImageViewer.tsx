@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
 import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
-import { useCanvasProcessor } from '../../hooks/useCanvasProcessor'
+import { useImageViewer } from '../../hooks/useImageViewer'
 import { ExportModal } from '../ExportModal'
 import type { ImageAdjustments } from '../../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
@@ -28,6 +28,7 @@ export function ImageViewer({
     const [zoom, setZoom] = useState(1)
     const [fitZoom, setFitZoom] = useState(1)
     const [isFitMode, setIsFitMode] = useState(true)
+    const [hasInitialFit, setHasInitialFit] = useState(false)
 
     // Hand tool state
     const [isHandToolActive, setIsHandToolActive] = useState(false)
@@ -46,8 +47,9 @@ export function ImageViewer({
         showOriginal,
         showProcessed,
         isShowingOriginal,
-    } = useCanvasProcessor({
+    } = useImageViewer({
         src,
+        filePath,
         adjustments
     })
 
@@ -81,6 +83,7 @@ export function ImageViewer({
 
         if (isFitMode) {
             setZoom(newFitZoom)
+            setHasInitialFit(true)
         }
     }, [naturalWidth, naturalHeight, calculateFitZoom, isFitMode])
 
@@ -105,6 +108,7 @@ export function ImageViewer({
     // Reset when src changes
     useEffect(() => {
         setIsFitMode(true)
+        setHasInitialFit(false)
     }, [src])
 
     // Zoom with constraints
@@ -176,6 +180,7 @@ export function ImageViewer({
 
     // Double-click to toggle fit/100%
     const handleDoubleClick = () => {
+        if (!hasInitialFit) return
         if (isFitMode) {
             actualSize()
         } else {
@@ -310,7 +315,7 @@ export function ImageViewer({
             {/* Scrollable Canvas Container */}
             <div
                 ref={scrollContainerRef}
-                className="flex-1 overflow-auto"
+                className="flex-1 overflow-auto relative"
                 onWheel={handleWheel}
                 onDoubleClick={handleDoubleClick}
                 onMouseDown={handleMouseDown}
@@ -323,22 +328,27 @@ export function ImageViewer({
                     cursor: getContainerCursor(),
                 }}
             >
-                {/* Loading State */}
-                {isLoading && (
-                    <div className="flex items-center justify-center h-full">
+                {/* Loading State — shown until the canvas is drawn at the correct fit zoom */}
+                {(isLoading || !hasInitialFit) && !error && (
+                    <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-gray-500">Loading...</div>
                     </div>
                 )}
 
                 {/* Error State */}
                 {error && (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-red-500">{error}</div>
                     </div>
                 )}
 
-                {/* Canvas Container */}
-                {!isLoading && !error && (
+                {/*
+                  * Canvas Container — always in DOM so renderToCanvas (called in img.onload)
+                  * can write to the canvas element even before hasInitialFit is true.
+                  * The wrapper is hidden via display:none until the fit zoom is applied,
+                  * which prevents the 100%-zoom flash before the image scales down.
+                  */}
+                {!error && (
                     <div
                         className="flex items-center justify-center"
                         style={{
@@ -347,6 +357,7 @@ export function ImageViewer({
                             width: scaledWidth > 0 ? Math.max(scaledWidth + 32, 0) : '100%',
                             height: scaledHeight > 0 ? Math.max(scaledHeight + 32, 0) : '100%',
                             padding: '16px',
+                            display: (!isLoading && hasInitialFit) ? undefined : 'none',
                         }}
                     >
                         <div className="relative">

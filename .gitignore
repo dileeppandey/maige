@@ -16,12 +16,14 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 
-# Tauri build output
+# Tauri build output & Rust workspace artifacts
+/target/
+crates/**/target/
+crates/**/gen/
 src-tauri/target/
 src-tauri/gen/
-
-# Rust build artifacts
 rust/*/target/
 *.rs.bk
 Cargo.lock

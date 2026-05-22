@@ -9,16 +9,16 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "tauri dev --config crates/maige-tauri/tauri.conf.json",
+    "tauri:build": "tauri build --config crates/maige-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@mediapipe/tasks-vision": "^0.10.21",
-    "@tauri-apps/api": "^2.9.1",
-    "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-fs": "^2.4.5",
-    "@tauri-apps/plugin-shell": "^2.3.4",
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.562.0",

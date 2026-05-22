@@ -26,12 +26,10 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Image error: {0}")]
+    Image(#[from] image::ImageError),
+
     #[error("Image processing error: {0}")]
     Processing(String),
 }
 
-impl From<image::ImageError> for Error {
-    fn from(err: image::ImageError) -> Self {
-        Error::ImageLoad(err.to_string())
-    }
-}

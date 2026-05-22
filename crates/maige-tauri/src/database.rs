@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-use crate::image_processor::Adjustments;
+use maige_core::Adjustments;
 
 /// Database image record
 #[derive(Debug, Clone, Serialize, Deserialize)]
