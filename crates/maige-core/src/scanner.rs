@@ -1,7 +1,7 @@
 //! Image scanning — recursively find all supported image files in a directory.
 
 use std::fs;
-use std::io::{self, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
