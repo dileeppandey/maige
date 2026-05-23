@@ -33,6 +33,10 @@ declare global {
             getFacesForImage: (imageId: number) => Promise<FaceRecord[]>;
             getUnidentifiedFaces: () => Promise<FaceRecord[]>;
             clusterFaces: () => Promise<FaceCluster[]>;
+            detectAndEmbedFaces: (imageId: number, imagePath: string) => Promise<FaceRecord[]>;
+            checkModelsStatus: () => Promise<{ detector: boolean; embedder: boolean; models_dir: string }>;
+            reloadFaceModels: () => Promise<{ detector: boolean; embedder: boolean; models_dir: string }>;
+            resetFaceData: () => Promise<void>;
             getFaceStats: () => Promise<FaceStats>;
             getFaceThumbnail: (faceId: number) => Promise<string | null>;
             getFaceInfo: (faceId: number) => Promise<{ id: number; image_id: number; image_path: string; person_id: number | null } | null>;
@@ -58,7 +62,7 @@ declare global {
 
             // Event listeners
             onImportProgress: (callback: (progress: ImportProgress) => void) => () => void;
-            onStartFaceDetection: (callback: (data: { imagePaths: { filePath: string; fileName: string }[] }) => void) => () => void;
+            onFaceDetectionPending: (callback: (data: { images: Array<{ id: number; file_path: string }> }) => void) => () => void;
 
             // Export operations
             showExportSaveDialog: (defaultPath: string, format: 'jpeg' | 'png') => Promise<string | null>;

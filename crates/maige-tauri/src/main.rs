@@ -6,8 +6,13 @@
 
 mod commands;
 mod database;
+mod face_recognition;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
+
+/// Global face recognizer — None until models are present in {app_data_dir}/models/.
+/// Uses tokio::sync::Mutex so commands can hold the guard across await points.
+pub struct FaceRecognizerState(pub tokio::sync::Mutex<Option<face_recognition::FaceRecognizer>>);
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
@@ -118,7 +123,25 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     let _ = app.emit("menu-action", payload);
 }
 
+/// Resolve the models directory: bundled resources take priority over app_data_dir.
+/// This lets dev builds use downloaded models and production builds use bundled ones.
+pub fn resolve_models_dir(app: &impl tauri::Manager<tauri::Wry>) -> std::path::PathBuf {
+    if let Ok(res) = app.path().resource_dir() {
+        let bundled = res.join("models");
+        if bundled.join("face_det.onnx").exists() {
+            return bundled;
+        }
+    }
+    app.path().app_data_dir()
+        .map(|d| d.join("models"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("models"))
+}
+
 fn main() {
+    // When ort is built with load-dynamic, we must call init() before any Session is created.
+    // This tells ort where to find onnxruntime.dll (copy-dylibs places it next to the binary).
+    assert!(ort::init().commit(), "Failed to initialise ONNX Runtime");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -172,7 +195,14 @@ fn main() {
             // Presets
             commands::save_presets,
             commands::load_presets,
+            // Face recognition (ONNX)
+            commands::check_models_status,
+            commands::detect_and_embed_faces,
+            commands::cluster_faces,
+            commands::reset_face_data,
+            commands::reload_face_models,
         ])
+        .manage(FaceRecognizerState(tokio::sync::Mutex::new(None)))
         .setup(|app| {
             let menu = build_menu(app)?;
             app.set_menu(menu)?;
@@ -185,6 +215,15 @@ fn main() {
                     eprintln!("Failed to initialize database: {}", e);
                 }
             });
+
+            // Load face recognition models if already present — non-fatal if missing
+            let models_dir = resolve_models_dir(app);
+            let state = app.state::<FaceRecognizerState>();
+            match face_recognition::FaceRecognizer::load(&models_dir) {
+                Ok(rec) => { *state.0.blocking_lock() = Some(rec); }
+                Err(e) => eprintln!("Face models not loaded (run check_models_status): {}", e),
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

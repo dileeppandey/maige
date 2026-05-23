@@ -8,6 +8,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import type { FaceRecord } from '../shared/types';
 
 // Types (match Rust snake_case serialization)
 interface LibraryImage {
@@ -41,10 +42,10 @@ interface Stats {
     duplicateGroups: number;
 }
 
+// Imported from shared/types — kept local for bridge use
 interface FaceCluster {
-    centroidFaceId: number;
-    faceIds: number[];
-    suggestedName?: string;
+    centroid_face_id: number;
+    face_ids: number[];
 }
 
 const apiImpl = {
@@ -289,102 +290,36 @@ const apiImpl = {
 
     clusterFaces: async (): Promise<FaceCluster[]> => {
         try {
-            const rawFaces = await invoke<Array<{ id: number; image_path: string }>>('get_unidentified_faces');
-            if (rawFaces.length === 0) return [];
-
-            const images = await invoke<LibraryImage[]>('get_all_images');
-            const phashMap = new Map<string, string>();
-            for (const img of images) {
-                if (img.file_path && img.phash) {
-                    phashMap.set(img.file_path, img.phash);
-                }
-            }
-
-            const getHammingDistance = (hash1: string, hash2: string): number => {
-                if (hash1.length !== hash2.length) return 99;
-                let dist = 0;
-                for (let i = 0; i < hash1.length; i++) {
-                    const v1 = parseInt(hash1[i], 16);
-                    const v2 = parseInt(hash2[i], 16);
-                    let xor = v1 ^ v2;
-                    while (xor > 0) {
-                        if (xor & 1) dist++;
-                        xor >>= 1;
-                    }
-                }
-                return dist;
-            };
-
-            const n = rawFaces.length;
-            const parent = Array.from({ length: n }, (_, i) => i);
-
-            const find = (x: number): number => {
-                if (parent[x] !== x) {
-                    parent[x] = find(parent[x]);
-                }
-                return parent[x];
-            };
-
-            const union = (x: number, y: number) => {
-                const rx = find(x);
-                const ry = find(y);
-                if (rx !== ry) {
-                    parent[rx] = ry;
-                }
-            };
-
-            for (let i = 0; i < n; i++) {
-                const faceI = rawFaces[i];
-                const hashI = phashMap.get(faceI.image_path);
-                if (!hashI) continue;
-
-                for (let j = i + 1; j < n; j++) {
-                    const faceJ = rawFaces[j];
-                    if (faceI.image_path === faceJ.image_path) continue;
-
-                    const hashJ = phashMap.get(faceJ.image_path);
-                    if (!hashJ) continue;
-
-                    const dist = getHammingDistance(hashI, hashJ);
-                    if (dist <= 8) {
-                        union(i, j);
-                    }
-                }
-            }
-
-            const groups = new Map<number, number[]>();
-            for (let i = 0; i < n; i++) {
-                const root = find(i);
-                if (!groups.has(root)) {
-                    groups.set(root, []);
-                }
-                groups.get(root)!.push(rawFaces[i].id);
-            }
-
-            const clusters: FaceCluster[] = [];
-            let clusterCounter = 1;
-            for (const [rootIdx, faceIds] of groups.entries()) {
-                const centroidId = rawFaces[rootIdx].id;
-                const centroidPath = rawFaces[rootIdx].image_path;
-                let folderName = 'Unknown';
-                if (centroidPath) {
-                    const parts = centroidPath.split(/[\\/]/);
-                    if (parts.length > 1) {
-                        folderName = parts[parts.length - 2];
-                    }
-                }
-
-                clusters.push({
-                    centroidFaceId: centroidId,
-                    faceIds: faceIds,
-                    suggestedName: `Cluster ${clusterCounter++} (${folderName})`
-                });
-            }
-
-            return clusters;
+            return await invoke<FaceCluster[]>('cluster_faces');
         } catch (e) {
             console.error('clusterFaces error:', e);
             return [];
+        }
+    },
+
+    detectAndEmbedFaces: async (imageId: number, imagePath: string): Promise<FaceRecord[]> => {
+        try {
+            return await invoke<FaceRecord[]>('detect_and_embed_faces', { imageId, imagePath });
+        } catch (e) {
+            console.error('detectAndEmbedFaces error:', e);
+            return [];
+        }
+    },
+
+    checkModelsStatus: async (): Promise<{ detector: boolean; embedder: boolean; models_dir: string }> => {
+        return invoke('check_models_status');
+    },
+
+    reloadFaceModels: async (): Promise<{ detector: boolean; embedder: boolean; models_dir: string }> => {
+        return invoke('reload_face_models');
+    },
+
+    resetFaceData: async (): Promise<void> => {
+        try {
+            await invoke('reset_face_data');
+        } catch (e) {
+            console.error('resetFaceData error:', e);
+            throw e;
         }
     },
 
@@ -538,9 +473,12 @@ const apiImpl = {
         };
     },
 
-    onStartFaceDetection: (_callback: (data: { imagePaths: string[] }) => void) => {
-        // Face detection is handled on frontend via MediaPipe
-        return () => { };
+    onFaceDetectionPending: (callback: (data: { images: Array<{ id: number; file_path: string }> }) => void) => {
+        let unlisten: (() => void) | null = null;
+        listen<{ images: Array<{ id: number; file_path: string }> }>('face-detection-pending', (event) => {
+            callback(event.payload);
+        }).then((fn) => { unlisten = fn; });
+        return () => { if (unlisten) unlisten(); };
     },
 };
 

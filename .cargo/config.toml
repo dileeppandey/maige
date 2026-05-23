@@ -1,0 +1,7 @@
+# Cargo workspace configuration
+
+[env]
+# ORT_DYLIB_PATH tells the ort crate (load-dynamic mode) where to find onnxruntime.dll at runtime.
+# The download-models script downloads onnxruntime.dll into crates/maige-tauri/models/.
+# This path is relative to the workspace root.
+ORT_DYLIB_PATH = { value = "crates/maige-tauri/models/onnxruntime.dll", relative = true }

@@ -9,8 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev --config crates/maige-tauri/tauri.conf.json",
-    "tauri:build": "tauri build --config crates/maige-tauri/tauri.conf.json"
+    "download-models": "node scripts/download-models.js",
+    "tauri:dev": "npm run download-models && tauri dev --config crates/maige-tauri/tauri.conf.json",
+    "tauri:build": "npm run download-models && tauri build --config crates/maige-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

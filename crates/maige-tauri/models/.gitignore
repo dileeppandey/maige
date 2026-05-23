@@ -1,0 +1,2 @@
+# ONNX model weights — download with scripts/download-models.ps1 / .sh
+*.onnx
