@@ -3,6 +3,7 @@
 //! All image processing is delegated to `maige_core`.
 //! This module is a thin IPC boundary: deserialize args → call core → serialize result.
 
+use crate::ai_chat::{self, CropRegion, FlatAdjustments};
 use crate::database::{self, Album, AnalyzedImage, DbImage, FaceCluster, FaceDetectionInput, FaceRecord, FaceStats, ImageTag, Person, Preset, TagInfo};
 use crate::{face_recognition, FaceRecognizerState};
 use maige_core::{
@@ -472,6 +473,36 @@ pub async fn cluster_faces(app: AppHandle) -> CmdResult<Vec<FaceCluster>> {
 #[tauri::command]
 pub async fn reset_face_data(app: AppHandle) -> CmdResult<()> {
     database::reset_face_data(&app).await.map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// AI Chat Commands (Ollama / Gemma3:4b)
+// ============================================================================
+
+/// Check whether the local Ollama server is reachable.
+#[tauri::command]
+pub async fn check_ollama_status() -> CmdResult<bool> {
+    Ok(ai_chat::check_reachable().await)
+}
+
+/// Analyze an image scene and return editing suggestions.
+#[tauri::command]
+pub async fn analyze_image_scene(
+    image_path: String,
+    region: Option<CropRegion>,
+) -> CmdResult<ai_chat::ChatResponse> {
+    Ok(ai_chat::analyze_scene(&image_path, region).await)
+}
+
+/// Process a natural-language editing instruction and return adjusted values.
+#[tauri::command]
+pub async fn chat_edit_image(
+    image_path: String,
+    instruction: String,
+    current_adjustments: FlatAdjustments,
+    region_base64: Option<String>,
+) -> CmdResult<ai_chat::ChatResponse> {
+    Ok(ai_chat::chat_edit(&image_path, &instruction, current_adjustments, region_base64).await)
 }
 
 /// Reload face recognition models from disk (useful after the user downloads them).

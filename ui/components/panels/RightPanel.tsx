@@ -4,12 +4,13 @@
  */
 
 import { useState } from 'react';
-import { Sliders, Info } from 'lucide-react';
+import { Sliders, Info, MessageSquare } from 'lucide-react';
 import { DevelopPanel } from './DevelopPanel';
 import { DetailsPanel } from './DetailsPanel';
+import { ChatPanel } from '../chat/ChatPanel';
 import type { LightAdjustments, ColorAdjustments, ImageAdjustments, StylePreset } from '../../../shared/types';
 
-type TabType = 'develop' | 'details';
+type TabType = 'develop' | 'details' | 'chat';
 
 interface RightPanelProps {
     adjustments: ImageAdjustments;
@@ -72,6 +73,19 @@ export function RightPanel({
                     <Info size={12} />
                     Details
                 </button>
+                <button
+                    onClick={() => setActiveTab('chat')}
+                    className={`
+                        flex items-center justify-center gap-1.5 h-full px-4 text-xs font-medium uppercase tracking-wide transition-colors
+                        ${activeTab === 'chat'
+                            ? 'text-white bg-[#252525] border-b-2 border-blue-500'
+                            : 'text-gray-500 hover:text-gray-300 hover:bg-[#252525]/50'
+                        }
+                    `}
+                >
+                    <MessageSquare size={12} />
+                    Chat
+                </button>
             </div>
 
             {/* Tab Content */}
@@ -91,8 +105,13 @@ export function RightPanel({
                         selectedImagePath={selectedImagePath}
                         histogramData={histogramData}
                     />
-                ) : (
+                ) : activeTab === 'details' ? (
                     <DetailsPanel selectedImagePath={selectedImagePath} />
+                ) : (
+                    <ChatPanel
+                        selectedImagePath={selectedImagePath ?? null}
+                        adjustments={adjustments}
+                    />
                 )}
             </div>
         </div>

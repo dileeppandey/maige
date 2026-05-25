@@ -75,6 +75,19 @@ declare global {
 
             // Menu actions
             onMenuAction: (callback: (action: string, data?: unknown) => void) => () => void;
+
+            // AI Chat (Ollama / Gemma3:4b)
+            checkOllamaStatus: () => Promise<boolean>;
+            analyzeImageScene: (
+                imagePath: string,
+                region?: { x: number; y: number; width: number; height: number },
+            ) => Promise<{ message: string; adjustments: unknown | null; suggestions: Array<{ label: string; adjustments: Record<string, number> }> }>;
+            chatEditImage: (
+                imagePath: string,
+                instruction: string,
+                currentAdjustments: Record<string, number>,
+                regionBase64?: string,
+            ) => Promise<{ message: string; adjustments: unknown | null; suggestions: Array<{ label: string; adjustments: Record<string, number> }> }>;
         };
     }
 }

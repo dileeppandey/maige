@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, type WheelEvent, type MouseEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, type ReactNode, type WheelEvent, type MouseEvent } from 'react'
 import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
 import { useImageViewer } from '../../hooks/useImageViewer'
 import { ExportModal } from '../ExportModal'
@@ -10,6 +10,8 @@ interface ImageViewerProps {
     filePath?: string
     adjustments?: ImageAdjustments
     onHistogramChange?: (data: { r: number[]; g: number[]; b: number[]; lum: number[] } | null) => void
+    overlaySlot?: ReactNode
+    onZoomChange?: (zoom: number) => void
 }
 
 const MIN_ZOOM = 0.1
@@ -20,7 +22,9 @@ export function ImageViewer({
     src,
     filePath,
     adjustments = DEFAULT_IMAGE_ADJUSTMENTS,
-    onHistogramChange
+    onHistogramChange,
+    overlaySlot,
+    onZoomChange,
 }: ImageViewerProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -57,6 +61,11 @@ export function ImageViewer({
     useEffect(() => {
         onHistogramChange?.(histogram)
     }, [histogram, onHistogramChange])
+
+    // Propagate zoom changes to parent
+    useEffect(() => {
+        onZoomChange?.(zoom)
+    }, [zoom, onZoomChange])
 
     const { width: naturalWidth, height: naturalHeight } = dimensions
 
@@ -363,6 +372,7 @@ export function ImageViewer({
                         <div className="relative">
                             <canvas
                                 ref={canvasRef}
+                                data-image-canvas="true"
                                 className="shadow-2xl select-none"
                                 onMouseDown={handleCanvasMouseDown}
                                 onMouseUp={handleCanvasMouseUp}
@@ -381,6 +391,8 @@ export function ImageViewer({
                                     Original
                                 </div>
                             )}
+                            {/* Region selector / other overlays */}
+                            {overlaySlot}
                         </div>
                     </div>
                 )}
