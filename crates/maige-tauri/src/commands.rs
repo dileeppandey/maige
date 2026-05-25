@@ -3,11 +3,13 @@
 //! All image processing is delegated to `maige_core`.
 //! This module is a thin IPC boundary: deserialize args → call core → serialize result.
 
-use crate::database::{self, Album, AnalyzedImage, DbImage, FaceDetectionInput, FaceRecord, FaceStats, ImageTag, Person, Preset, TagInfo};
+use crate::database::{self, Album, AnalyzedImage, DbImage, FaceCluster, FaceDetectionInput, FaceRecord, FaceStats, ImageTag, Person, Preset, TagInfo};
+use crate::{face_recognition, FaceRecognizerState};
 use maige_core::{
     scan_directory, file_sha256, extract_metadata,
     Adjustments, Histogram, ImageProcessor,
 };
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
 /// Result type for commands
@@ -58,6 +60,12 @@ pub async fn import_folder(
             Err(e) => eprintln!("Failed to analyze {}: {}", path, e),
         }
     }
+
+    // Notify frontend so it can trigger per-image face detection
+    let pending: Vec<serde_json::Value> = imported.iter().map(|img| {
+        serde_json::json!({ "id": img.id, "file_path": img.file_path })
+    }).collect();
+    let _ = app.emit("face-detection-pending", serde_json::json!({ "images": pending }));
 
     Ok(imported)
 }
@@ -340,4 +348,148 @@ pub async fn save_presets(app: AppHandle, presets: Vec<serde_json::Value>) -> Cm
 #[tauri::command]
 pub async fn load_presets(app: AppHandle) -> CmdResult<Vec<Preset>> {
     database::load_presets(&app).await.map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Face Recognition (ONNX)
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModelStatus {
+    pub detector: bool,
+    pub embedder: bool,
+    pub models_dir: String,
+}
+
+/// Check whether the ONNX model files are present in the models directory.
+#[tauri::command]
+pub async fn check_models_status(app: AppHandle) -> CmdResult<ModelStatus> {
+    let models_dir = crate::resolve_models_dir(&app);
+
+    Ok(ModelStatus {
+        detector: models_dir.join("face_det.onnx").exists(),
+        embedder: models_dir.join("face_emb.onnx").exists(),
+        models_dir: models_dir.to_string_lossy().to_string(),
+    })
+}
+
+/// Detect faces in one image, compute embeddings, and persist them to the DB.
+/// Returns the saved FaceRecord rows.
+#[tauri::command]
+pub async fn detect_and_embed_faces(
+    app: AppHandle,
+    state: tauri::State<'_, FaceRecognizerState>,
+    image_id: i64,
+    image_path: String,
+) -> CmdResult<Vec<FaceRecord>> {
+    // Phase 1: ONNX inference (synchronous CPU work — lock held but no awaits)
+    let (det_inputs, embeddings) = {
+        let mut guard = state.0.lock().await;
+        let rec = guard.as_mut().ok_or("Face recognition models not loaded. \
+            Run check_models_status to see the required model paths.")?;
+
+        let img = image::open(&image_path).map_err(|e| e.to_string())?;
+        let detected = rec.detect(&img).map_err(|e| e.to_string())?;
+        if detected.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let det_inputs: Vec<FaceDetectionInput> = detected.iter().map(|f| FaceDetectionInput {
+            bbox: database::BboxInput { x: f.x as f64, y: f.y as f64, width: f.w as f64, height: f.h as f64 },
+            confidence: f.confidence as f64,
+        }).collect();
+
+        let embeddings: Vec<Option<Vec<f32>>> = detected.iter()
+            .map(|f| rec.embed(&img, (f.x, f.y, f.w, f.h)).ok())
+            .collect();
+
+        (det_inputs, embeddings)
+        // guard is dropped here, before any await
+    };
+
+    // Phase 2: async DB writes
+    let face_records = database::save_face_detections(&app, image_id, &image_path, &det_inputs)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    for (record, emb_opt) in face_records.iter().zip(embeddings.iter()) {
+        if let Some(emb) = emb_opt {
+            if let Err(e) = database::save_face_embedding(&app, record.id, emb).await {
+                eprintln!("save_face_embedding error for face {}: {}", record.id, e);
+            }
+        }
+    }
+
+    Ok(face_records)
+}
+
+/// Run DBSCAN on all unidentified face embeddings and return clusters.
+#[tauri::command]
+pub async fn cluster_faces(app: AppHandle) -> CmdResult<Vec<FaceCluster>> {
+    let embeddings = database::get_unidentified_face_embeddings(&app)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if embeddings.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // ── Diagnostics ─────────────────────────────────────────────────────────
+    eprintln!("[cluster_faces] {} embeddings loaded", embeddings.len());
+    for (face_id, emb) in &embeddings {
+        let norm: f32 = emb.iter().map(|v| v * v).sum::<f32>().sqrt();
+        eprintln!("  face_id={} dim={} norm={:.4} first4={:?}",
+            face_id, emb.len(), norm, &emb[..emb.len().min(4)]);
+    }
+    // Print full pairwise cosine-distance matrix
+    eprintln!("[cluster_faces] Pairwise cosine distances (threshold = 0.45, avg-linkage):");
+    for i in 0..embeddings.len() {
+        let mut row = String::new();
+        for j in 0..embeddings.len() {
+            let dot: f32 = embeddings[i].1.iter().zip(embeddings[j].1.iter()).map(|(a,b)| a*b).sum();
+            let dist = (1.0 - dot).max(0.0);
+            row.push_str(&format!("{:.3} ", dist));
+        }
+        eprintln!("  face[{}]: {}", embeddings[i].0, row.trim_end());
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    // Average-linkage hierarchical clustering:
+    //   threshold=0.45  — two clusters merge when their average pairwise cosine distance is < 0.45
+    //   min_pts=1       — a single face from an unknown person still shows as its own cluster
+    let groups = face_recognition::hierarchical_cluster(&embeddings, 0.45, 1);
+    eprintln!("[cluster_faces] {} clusters formed", groups.len());
+
+    let clusters = groups.into_iter().map(|face_ids| FaceCluster {
+        centroid_face_id: face_ids[0],
+        face_ids,
+    }).collect();
+
+    Ok(clusters)
+}
+
+/// Clear all face detections and people records so faces can be re-detected with fresh embeddings.
+#[tauri::command]
+pub async fn reset_face_data(app: AppHandle) -> CmdResult<()> {
+    database::reset_face_data(&app).await.map_err(|e| e.to_string())
+}
+
+/// Reload face recognition models from disk (useful after the user downloads them).
+#[tauri::command]
+pub async fn reload_face_models(
+    app: AppHandle,
+    state: tauri::State<'_, FaceRecognizerState>,
+) -> CmdResult<ModelStatus> {
+    let models_dir = crate::resolve_models_dir(&app);
+
+    match face_recognition::FaceRecognizer::load(&models_dir) {
+        Ok(rec) => { *state.0.lock().await = Some(rec); }
+        Err(e) => eprintln!("reload_face_models: {}", e),
+    }
+
+    Ok(ModelStatus {
+        detector: models_dir.join("face_det.onnx").exists(),
+        embedder: models_dir.join("face_emb.onnx").exists(),
+        models_dir: models_dir.to_string_lossy().to_string(),
+    })
 }

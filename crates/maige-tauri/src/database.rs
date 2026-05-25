@@ -120,6 +120,12 @@ pub struct BboxInput {
     pub height: f64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FaceCluster {
+    pub centroid_face_id: i64,
+    pub face_ids: Vec<i64>,
+}
+
 /// Get database path
 fn get_db_path(app: &AppHandle) -> PathBuf {
     app.path()
@@ -250,6 +256,9 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id);
         "#,
     )?;
+
+    // Migration: add embedding column if it doesn't exist yet (SQLite ignores duplicate column errors)
+    let _ = conn.execute("ALTER TABLE faces ADD COLUMN embedding BLOB", []);
 
     Ok(())
 }
@@ -1047,4 +1056,58 @@ pub async fn get_face_thumbnail(app: &AppHandle, face_id: i64) -> anyhow::Result
 
     let encoded = general_purpose::STANDARD.encode(&jpeg_bytes);
     Ok(Some(format!("data:image/jpeg;base64,{}", encoded)))
+}
+
+/// Clear all face data and people so face detection can be re-run from scratch.
+pub async fn reset_face_data(app: &AppHandle) -> anyhow::Result<()> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+    conn.execute_batch("
+        DELETE FROM faces;
+        DELETE FROM people;
+    ")?;
+    Ok(())
+}
+
+/// Persist a face embedding (stored as raw little-endian f32 bytes; dimension depends on model).
+pub async fn save_face_embedding(app: &AppHandle, face_id: i64, embedding: &[f32]) -> anyhow::Result<()> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    let bytes: Vec<u8> = embedding.iter().flat_map(|f| f.to_le_bytes()).collect();
+    conn.execute(
+        "UPDATE faces SET embedding = ?1 WHERE id = ?2",
+        params![bytes, face_id],
+    )?;
+
+    Ok(())
+}
+
+/// Return all (face_id, embedding) pairs for unidentified faces that have an embedding.
+pub async fn get_unidentified_face_embeddings(app: &AppHandle) -> anyhow::Result<Vec<(i64, Vec<f32>)>> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, embedding FROM faces WHERE person_id IS NULL AND embedding IS NOT NULL"
+    )?;
+
+    let results = stmt
+        .query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let bytes: Vec<u8> = row.get(1)?;
+            Ok((id, bytes))
+        })?
+        .filter_map(|r| r.ok())
+        .filter_map(|(id, bytes)| {
+            if bytes.len() % 4 != 0 { return None; }
+            let embedding: Vec<f32> = bytes
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect();
+            Some((id, embedding))
+        })
+        .collect();
+
+    Ok(results)
 }

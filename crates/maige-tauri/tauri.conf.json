@@ -6,7 +6,7 @@
     "build": {
         "beforeDevCommand": "npm run dev",
         "devUrl": "http://localhost:5173",
-        "beforeBuildCommand": "npm run build",
+        "beforeBuildCommand": "npm run download-models && npm run build",
         "frontendDist": "../../dist"
     },
     "app": {
@@ -38,6 +38,10 @@
     "bundle": {
         "icon": [
             "icons/icon.png"
+        ],
+        "resources": [
+            "models/face_det.onnx",
+            "models/face_emb.onnx"
         ]
     },
     "plugins": {

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Users, UserPlus, Loader2, RefreshCw, EyeOff, Eye, CheckSquare, X, Sparkles, ChevronRight } from 'lucide-react';
+import { Users, UserPlus, Loader2, RefreshCw, EyeOff, Eye, CheckSquare, X, Sparkles, ChevronRight, Trash2 } from 'lucide-react';
 import type { PersonRecord, FaceRecord, FaceCluster, FaceStats } from '../../../shared/types';
 import { FaceThumbnail } from '../FaceThumbnail';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -22,6 +22,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
     const [stats, setStats] = useState<FaceStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isClustering, setIsClustering] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
     const [clusterProgress, _setClusterProgress] = useState<{ current: number; total: number } | null>(null);
     const [namingFaceId, setNamingFaceId] = useState<number | null>(null);
     const [newPersonName, setNewPersonName] = useState('');
@@ -77,6 +78,30 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             console.error('Failed to cluster faces:', error);
         } finally {
             setIsClustering(false);
+        }
+    };
+
+    // Reset all face data and re-trigger detection on all images
+    const handleResetAndRedetect = async () => {
+        if (!confirm('This will clear all face detections and people records, then re-detect on all imported images. Continue?')) return;
+        setIsResetting(true);
+        try {
+            await window.api.resetFaceData();
+            setClusters([]);
+            // Re-trigger face detection on all imported images
+            const images = await window.api.getLibraryImages();
+            for (const img of images) {
+                try {
+                    await window.api.detectAndEmbedFaces(img.id, img.file_path);
+                } catch (e) {
+                    console.error('detectAndEmbedFaces failed for', img.file_path, e);
+                }
+            }
+            await loadData();
+        } catch (error) {
+            console.error('Failed to reset face data:', error);
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -190,10 +215,10 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
             }
         } else if (namingFaceId) {
             // Assign single cluster to this person
-            const cluster = clusters.find(c => c.faceIds.includes(namingFaceId));
+            const cluster = clusters.find(c => c.face_ids.includes(namingFaceId));
             if (cluster) {
                 try {
-                    for (const faceId of cluster.faceIds) {
+                    for (const faceId of cluster.face_ids) {
                         await window.api.assignFaceToPerson(faceId, personId);
                     }
                     setNamingFaceId(null);
@@ -245,6 +270,14 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                             title="Refresh"
                         >
                             <RefreshCw className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={handleResetAndRedetect}
+                            disabled={isResetting}
+                            className="p-1 hover:bg-red-900/50 rounded text-gray-400 hover:text-red-400 disabled:opacity-50"
+                            title="Reset all face data and re-detect (use after fixing channel order)"
+                        >
+                            {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>
                     </div>
                 </div>
@@ -411,14 +444,14 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                     >
                                         <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                                             <span className="flex items-center gap-1">
-                                                Cluster {idx + 1} ({cluster.faceIds.length} faces)
+                                                Cluster {idx + 1} ({cluster.face_ids.length} faces)
                                                 <ChevronRight className="w-3 h-3" />
                                             </span>
                                             {selectionMode && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        selectAllInCluster(cluster.faceIds);
+                                                        selectAllInCluster(cluster.face_ids);
                                                     }}
                                                     className="text-blue-400 hover:text-blue-300"
                                                 >
@@ -427,7 +460,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                             )}
                                         </div>
                                         <div className="flex flex-wrap gap-1">
-                                            {cluster.faceIds.slice(0, 6).map((faceId) => (
+                                            {cluster.face_ids.slice(0, 6).map((faceId) => (
                                                 <FaceThumbnail
                                                     key={faceId}
                                                     faceId={faceId}
@@ -440,14 +473,14 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                     }}
                                                 />
                                             ))}
-                                            {cluster.faceIds.length > 6 && (
+                                            {cluster.face_ids.length > 6 && (
                                                 <div className="w-10 h-10 rounded bg-gray-600 flex items-center justify-center text-xs">
-                                                    +{cluster.faceIds.length - 6}
+                                                    +{cluster.face_ids.length - 6}
                                                 </div>
                                             )}
                                         </div>
                                         {/* Name this cluster */}
-                                        {namingFaceId && cluster.faceIds.includes(namingFaceId) && (
+                                        {namingFaceId && cluster.face_ids.includes(namingFaceId) && (
                                             <div className="mt-2 relative" onClick={(e) => e.stopPropagation()}>
                                                 <div className="flex gap-1">
                                                     <input
@@ -459,7 +492,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                         autoFocus
                                                         onKeyDown={(e) => {
                                                             if (e.key === 'Enter') {
-                                                                handleCreatePersonFromCluster(cluster.faceIds);
+                                                                handleCreatePersonFromCluster(cluster.face_ids);
                                                             } else if (e.key === 'Escape') {
                                                                 setNamingFaceId(null);
                                                                 setNewPersonName('');
@@ -467,7 +500,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                                                         }}
                                                     />
                                                     <button
-                                                        onClick={() => handleCreatePersonFromCluster(cluster.faceIds)}
+                                                        onClick={() => handleCreatePersonFromCluster(cluster.face_ids)}
                                                         className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
                                                         title="Create new person"
                                                     >
@@ -532,7 +565,7 @@ export function PeoplePanel({ onSelectPerson, selectedPersonId }: PeoplePanelPro
                         )}
 
                         {/* Naming dialog for individual face */}
-                        {namingFaceId && !clusters.some(c => c.faceIds.includes(namingFaceId)) && (
+                        {namingFaceId && !clusters.some(c => c.face_ids.includes(namingFaceId)) && (
                             <div className="mt-2 flex gap-1">
                                 <input
                                     type="text"

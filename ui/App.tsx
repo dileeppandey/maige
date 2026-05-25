@@ -114,7 +114,7 @@ function App() {
         try {
           // Get image paths for each face in the cluster
           const faceImages = await Promise.all(
-            selectedCluster.faceIds.map(async (faceId) => {
+            selectedCluster.face_ids.map(async (faceId) => {
               const faceInfo = await window.api.getFaceInfo(faceId)
               return faceInfo
             })

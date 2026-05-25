@@ -38,6 +38,13 @@ anyhow = "1.0"
 # Base64 (face thumbnail encoding)
 base64 = "0.22"
 
+# Face recognition via ONNX Runtime
+# load-dynamic: load onnxruntime.dll at runtime (avoids LNK2001 with static lib on MSVC)
+# copy-dylibs: copies onnxruntime.dll next to the binary automatically
+# download-binaries: fetches the prebuilt ORT binaries (dll + lib) from pyke CDN
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "tracing", "load-dynamic", "api-24"] }
+ndarray = "0.17"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

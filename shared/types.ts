@@ -229,11 +229,10 @@ export type PersonRecord = {
     created_at: string;
 };
 
-// Face cluster (for organizing unidentified faces)
+// Face cluster (for organizing unidentified faces) — mirrors Rust FaceCluster (snake_case)
 export type FaceCluster = {
-    centroidFaceId: number;
-    faceIds: number[];
-    suggestedName?: string;
+    centroid_face_id: number;
+    face_ids: number[];
 };
 
 // Suggested face match

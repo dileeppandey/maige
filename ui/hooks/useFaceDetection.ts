@@ -1,12 +1,4 @@
-/**
- * Face Detection Hook
- * Listens for face detection requests after import,
- * runs MediaPipe face detection, and saves results to the backend.
- */
-
 import { useEffect, useRef, useState } from 'react';
-import { detectFacesFromUrl, preloadFaceDetector } from '../processing/faceDetector';
-import { assetUrl } from '../utils/assetUrl';
 
 interface FaceDetectionStatus {
     isProcessing: boolean;
@@ -22,74 +14,32 @@ export function useFaceDetection() {
         total: 0,
         currentFile: '',
     });
-    const isInitialized = useRef(false);
+    // Prevent concurrent runs if a batch is already in-flight
+    const isRunning = useRef(false);
 
     useEffect(() => {
-        // Preload the face detector on mount
-        if (!isInitialized.current) {
-            isInitialized.current = true;
-            preloadFaceDetector().catch(err => {
-                console.error('Failed to preload face detector:', err);
-            });
-        }
+        const cleanup = window.api.onFaceDetectionPending(async (data) => {
+            if (isRunning.current) return;
+            isRunning.current = true;
 
-        // Listen for face detection requests from main process
-        const cleanup = window.api.onStartFaceDetection(async (data) => {
-            console.log('Face detection requested for', data.imagePaths.length, 'images');
+            const images = data.images;
+            setStatus({ isProcessing: true, current: 0, total: images.length, currentFile: '' });
 
-            setStatus({
-                isProcessing: true,
-                current: 0,
-                total: data.imagePaths.length,
-                currentFile: '',
-            });
+            for (let i = 0; i < images.length; i++) {
+                const { id, file_path } = images[i];
+                const fileName = file_path.split(/[\\/]/).pop() ?? file_path;
 
-            for (let i = 0; i < data.imagePaths.length; i++) {
-                const { filePath, fileName } = data.imagePaths[i];
-
-                setStatus(prev => ({
-                    ...prev,
-                    current: i + 1,
-                    currentFile: fileName,
-                }));
+                setStatus(prev => ({ ...prev, current: i + 1, currentFile: fileName }));
 
                 try {
-                    // Convert file path to asset URL for browser loading
-                    const mediaUrl = assetUrl(filePath);
-
-                    // Detect faces using MediaPipe
-                    const detections = await detectFacesFromUrl(mediaUrl);
-
-                    if (detections.length > 0) {
-                        console.log(`Found ${detections.length} face(s) in ${fileName}`);
-
-                        // Get image ID from database
-                        const images = await window.api.getLibraryImages();
-                        const imageRecord = images.find(img => img.file_path === filePath);
-
-                        if (imageRecord) {
-                            // Send face detections to main process for storage
-                            const results = await window.api.saveFaceDetections(
-                                imageRecord.id,
-                                filePath,
-                                detections
-                            );
-                            console.log(`Saved ${results.length} faces for ${fileName}`);
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Face detection failed for ${fileName}:`, error);
+                    await window.api.detectAndEmbedFaces(id, file_path);
+                } catch (err) {
+                    console.error(`Face detection failed for ${fileName}:`, err);
                 }
             }
 
-            setStatus({
-                isProcessing: false,
-                current: data.imagePaths.length,
-                total: data.imagePaths.length,
-                currentFile: '',
-            });
-
-            console.log('Face detection complete');
+            setStatus({ isProcessing: false, current: images.length, total: images.length, currentFile: '' });
+            isRunning.current = false;
         });
 
         return cleanup;
