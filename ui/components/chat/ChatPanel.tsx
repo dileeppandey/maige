@@ -3,8 +3,9 @@ import { Crosshair, BookOpen, Send, X, Loader2, Check } from 'lucide-react';
 import { useChatStore } from '../../store/useChatStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useEditStore } from '../../store/useEditStore';
-import { flattenAdjustments, unflattenAdjustments } from '../../utils/adjustments';
-import type { ChatMessage, FlatAdjustments, ImageAdjustments } from '../../../shared/types';
+import { flattenAdjustments } from '../../utils/adjustments';
+import { AdjustmentSlider } from '../adjustments/AdjustmentSlider';
+import type { ChatMessage, FlatAdjustments, ImageAdjustments, LightAdjustments, ColorAdjustments } from '../../../shared/types';
 import { RecipeManager } from './RecipeManager';
 
 interface ChatPanelProps {
@@ -15,6 +16,10 @@ interface ChatPanelProps {
 function newId() {
     return Math.random().toString(36).slice(2);
 }
+
+// Light field keys and color field keys for routing to the right updater
+const LIGHT_KEYS = new Set<keyof FlatAdjustments>(['exposure', 'contrast', 'highlights', 'shadows', 'whites', 'blacks']);
+const COLOR_KEYS = new Set<keyof FlatAdjustments>(['temperature', 'tint', 'saturation', 'vibrance']);
 
 const ADJ_LABELS: Record<keyof FlatAdjustments, string> = {
     exposure: 'Exposure',
@@ -43,34 +48,47 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
     const setAnalyzing = useChatStore((s) => s.setAnalyzing);
 
     const setRegionSelectMode = useUIStore((s) => s.setRegionSelectMode);
-    const setAdjustments = useEditStore((s) => s.setAdjustments);
+
+    // Use the same update functions the Develop panel uses — they're proven to work
+    const updateLightAdjustment = useEditStore((s) => s.updateLightAdjustment);
+    const updateColorAdjustment = useEditStore((s) => s.updateColorAdjustment);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const applyAdjustments = useCallback((flat: FlatAdjustments) => {
+    // Apply a full FlatAdjustments object by routing each field to the correct updater
+    const applyFlat = useCallback((flat: FlatAdjustments) => {
         if (!selectedImagePath) return;
-        setAdjustments(selectedImagePath, unflattenAdjustments(flat));
-    }, [selectedImagePath, setAdjustments]);
+        (Object.keys(flat) as Array<keyof FlatAdjustments>).forEach((key) => {
+            if (LIGHT_KEYS.has(key)) {
+                updateLightAdjustment(selectedImagePath, key as keyof LightAdjustments, flat[key]);
+            } else if (COLOR_KEYS.has(key)) {
+                updateColorAdjustment(selectedImagePath, key as keyof ColorAdjustments, flat[key]);
+            }
+        });
+    }, [selectedImagePath, updateLightAdjustment, updateColorAdjustment]);
 
-    const updateSlider = useCallback((field: keyof FlatAdjustments, value: number) => {
+    const handleSliderChange = useCallback((field: keyof FlatAdjustments, value: number) => {
         if (!selectedImagePath) return;
-        const current = flattenAdjustments(adjustments);
-        const updated = { ...current, [field]: value };
-        setAdjustments(selectedImagePath, unflattenAdjustments(updated));
-    }, [selectedImagePath, adjustments, setAdjustments]);
+        if (LIGHT_KEYS.has(field)) {
+            updateLightAdjustment(selectedImagePath, field as keyof LightAdjustments, value);
+        } else if (COLOR_KEYS.has(field)) {
+            updateColorAdjustment(selectedImagePath, field as keyof ColorAdjustments, value);
+        }
+    }, [selectedImagePath, updateLightAdjustment, updateColorAdjustment]);
 
     const sendMessage = useCallback(async () => {
         const text = input.trim();
         if (!text || !selectedImagePath || isAnalyzing) return;
         setInput('');
 
+        const regionBase64 = pendingRegion?.base64;
         const userMsg: ChatMessage = {
             id: newId(),
             role: 'user',
             content: text,
-            regionBase64: pendingRegion?.base64,
+            regionBase64,
             timestamp: new Date().toISOString(),
         };
         addMessage(userMsg);
@@ -82,7 +100,7 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                 selectedImagePath,
                 text,
                 flattenAdjustments(adjustments),
-                pendingRegion?.base64,
+                regionBase64,
             ) as { message: string; adjustments: FlatAdjustments | null; suggestions: Array<{ label: string; adjustments: FlatAdjustments }> };
 
             const assistantMsg: ChatMessage = {
@@ -95,14 +113,14 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
             };
             addMessage(assistantMsg);
 
-            // Auto-apply adjustments from chat response
+            // Auto-apply chat response adjustments immediately
             if (result.adjustments) {
-                applyAdjustments(result.adjustments);
+                applyFlat(result.adjustments);
             }
         } finally {
             setAnalyzing(false);
         }
-    }, [input, selectedImagePath, isAnalyzing, adjustments, pendingRegion, addMessage, setPendingRegion, setAnalyzing, applyAdjustments]);
+    }, [input, selectedImagePath, isAnalyzing, adjustments, pendingRegion, addMessage, setPendingRegion, setAnalyzing, applyFlat]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -158,8 +176,8 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                         key={msg.id}
                         msg={msg}
                         currentAdjustments={flattenAdjustments(adjustments)}
-                        onApply={applyAdjustments}
-                        onSliderChange={updateSlider}
+                        onApply={applyFlat}
+                        onSliderChange={handleSliderChange}
                         autoApplied={msg.role === 'assistant' && !!msg.adjustments && !msg.suggestions?.length}
                     />
                 ))}
@@ -226,23 +244,18 @@ interface MessageBubbleProps {
     currentAdjustments: FlatAdjustments;
     onApply: (flat: FlatAdjustments) => void;
     onSliderChange: (field: keyof FlatAdjustments, value: number) => void;
-    /** True when this assistant message's adjustments were auto-applied on arrival */
     autoApplied: boolean;
 }
 
 function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoApplied }: MessageBubbleProps) {
     const isUser = msg.role === 'user';
-    // One apply-state per suggestion index (-1 = the main adjustments button)
     const [applyStates, setApplyStates] = useState<Record<number, ApplyState>>({});
-    // Which items are showing their sliders (index -1 = main adjustments)
     const [slidersOpen, setSlidersOpen] = useState<Record<number, boolean>>(
-        // auto-open sliders for auto-applied main adjustments
         autoApplied && msg.adjustments ? { [-1]: true } : {}
     );
 
     const triggerApply = useCallback((index: number, flat: FlatAdjustments) => {
         setApplyStates((prev) => ({ ...prev, [index]: 'applying' }));
-        // Small delay so spinner is visible even for instant store writes
         setTimeout(() => {
             onApply(flat);
             setApplyStates((prev) => ({ ...prev, [index]: 'applied' }));
@@ -273,11 +286,10 @@ function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoA
                 {msg.content}
             </div>
 
-            {/* Main adjustments (chat response) */}
+            {/* Main chat-response adjustments */}
             {msg.adjustments && (
-                <div className="mt-1.5 w-full max-w-[95%]">
+                <div className="mt-1.5 w-full">
                     {autoApplied && applyStates[-1] === undefined ? (
-                        // Was auto-applied on arrival — show applied state immediately
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1.5 text-xs text-green-400">
                                 <Check size={12} />
@@ -287,7 +299,7 @@ function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoA
                                 onClick={() => setSlidersOpen((prev) => ({ ...prev, [-1]: !prev[-1] }))}
                                 className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                             >
-                                {slidersOpen[-1] ? 'Hide sliders' : 'Adjust'}
+                                {slidersOpen[-1] ? 'Hide sliders' : 'Fine-tune'}
                             </button>
                         </div>
                     ) : (
@@ -301,7 +313,7 @@ function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoA
                     )}
                     {slidersOpen[-1] && (
                         <AdjustmentSliders
-                            adjustments={msg.adjustments}
+                            suggestedAdjustments={msg.adjustments}
                             currentValues={currentAdjustments}
                             onChange={onSliderChange}
                         />
@@ -309,9 +321,9 @@ function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoA
                 </div>
             )}
 
-            {/* Suggestions */}
+            {/* Scene analysis suggestions */}
             {msg.suggestions && msg.suggestions.length > 0 && (
-                <div className="mt-2 space-y-1.5 w-full max-w-[95%]">
+                <div className="mt-2 space-y-1.5 w-full">
                     {msg.suggestions.map((sug, i) => (
                         <div key={i} className="rounded bg-[#2a2a2a] border border-[#3a3a3a]">
                             <div className="flex items-center justify-between px-2.5 py-2 gap-2">
@@ -326,9 +338,9 @@ function MessageBubble({ msg, currentAdjustments, onApply, onSliderChange, autoA
                                 />
                             </div>
                             {slidersOpen[i] && (
-                                <div className="px-2.5 pb-2.5">
+                                <div className="px-3 pb-3">
                                     <AdjustmentSliders
-                                        adjustments={sug.adjustments}
+                                        suggestedAdjustments={sug.adjustments}
                                         currentValues={currentAdjustments}
                                         onChange={onSliderChange}
                                     />
@@ -357,7 +369,7 @@ function ApplyButton({ state, label, onApply, showSliders, onToggleSliders, comp
     if (state === 'applied') {
         return (
             <div className="flex items-center gap-2">
-                <div className={`flex items-center gap-1.5 text-xs text-green-400 ${compact ? 'text-[11px]' : ''}`}>
+                <div className={`flex items-center gap-1.5 text-green-400 ${compact ? 'text-[11px]' : 'text-xs'}`}>
                     <Check size={compact ? 11 : 12} />
                     <span>Applied</span>
                 </div>
@@ -365,7 +377,7 @@ function ApplyButton({ state, label, onApply, showSliders, onToggleSliders, comp
                     onClick={onToggleSliders}
                     className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                 >
-                    {showSliders ? 'Hide' : 'Adjust'}
+                    {showSliders ? 'Hide' : 'Fine-tune'}
                 </button>
             </div>
         );
@@ -381,9 +393,7 @@ function ApplyButton({ state, label, onApply, showSliders, onToggleSliders, comp
                     : 'px-2.5 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60'
                 }`}
         >
-            {state === 'applying' ? (
-                <Loader2 size={compact ? 11 : 12} className="animate-spin" />
-            ) : null}
+            {state === 'applying' && <Loader2 size={compact ? 11 : 12} className="animate-spin" />}
             {label}
         </button>
     );
@@ -392,46 +402,30 @@ function ApplyButton({ state, label, onApply, showSliders, onToggleSliders, comp
 // ---------------------------------------------------------------------------
 
 interface AdjustmentSlidersProps {
-    /** The AI-suggested values — used to know which sliders to show */
-    adjustments: FlatAdjustments;
-    /** Live current values from the edit store */
+    /** The AI-suggested values — determines which sliders to show */
+    suggestedAdjustments: FlatAdjustments;
+    /** Live current values from the edit store (passed as prop, re-renders when store changes) */
     currentValues: FlatAdjustments;
     onChange: (field: keyof FlatAdjustments, value: number) => void;
 }
 
-function AdjustmentSliders({ adjustments, currentValues, onChange }: AdjustmentSlidersProps) {
-    // Show only sliders for fields the AI actually changed (non-zero in suggestion)
-    const fields = (Object.keys(adjustments) as Array<keyof FlatAdjustments>).filter(
-        (k) => adjustments[k] !== 0
+function AdjustmentSliders({ suggestedAdjustments, currentValues, onChange }: AdjustmentSlidersProps) {
+    // Show sliders only for fields the AI changed (non-zero in suggestion)
+    const fields = (Object.keys(suggestedAdjustments) as Array<keyof FlatAdjustments>).filter(
+        (k) => suggestedAdjustments[k] !== 0
     );
-
-    // If nothing was changed, show all fields anyway so user can still explore
-    const visibleFields = fields.length > 0 ? fields : (Object.keys(adjustments) as Array<keyof FlatAdjustments>);
+    const visibleFields = fields.length > 0 ? fields : (Object.keys(suggestedAdjustments) as Array<keyof FlatAdjustments>);
 
     return (
-        <div className="mt-2 space-y-2">
-            {visibleFields.map((field) => {
-                const live = currentValues[field] ?? 0;
-                return (
-                    <div key={field} className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-500 w-16 shrink-0 text-right">
-                            {ADJ_LABELS[field]}
-                        </span>
-                        <input
-                            type="range"
-                            min={-100}
-                            max={100}
-                            step={1}
-                            value={live}
-                            onChange={(e) => onChange(field, Number(e.target.value))}
-                            className="flex-1 h-1 accent-blue-500 cursor-pointer"
-                        />
-                        <span className="text-[10px] text-gray-400 w-8 text-right tabular-nums shrink-0">
-                            {live > 0 ? `+${live}` : live}
-                        </span>
-                    </div>
-                );
-            })}
+        <div className="mt-3 space-y-1">
+            {visibleFields.map((field) => (
+                <AdjustmentSlider
+                    key={field}
+                    label={ADJ_LABELS[field]}
+                    value={currentValues[field] ?? 0}
+                    onChange={(value) => onChange(field, value)}
+                />
+            ))}
         </div>
     );
 }
