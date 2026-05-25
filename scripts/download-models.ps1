@@ -35,13 +35,13 @@ function Download-Model {
 }
 
 Download-Model `
-    -Url "https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/raw/master/models/onnx/version-RFB-320.onnx" `
+    -Url "https://huggingface.co/WePrompt/buffalo_sc/resolve/main/det_500m.onnx" `
     -Dest "$ModelsDir\face_det.onnx" `
-    -Name "face_det.onnx (Ultraface RFB-320)"
+    -Name "face_det.onnx (SCRFD Face Detection with Landmarks)"
 
 Download-Model `
-    -Url "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx" `
+    -Url "https://huggingface.co/maze/faceX/resolve/main/w600k_r50.onnx" `
     -Dest "$ModelsDir\face_emb.onnx" `
-    -Name "face_emb.onnx (OpenCV SFace)"
+    -Name "face_emb.onnx (ArcFace State-of-the-Art Recognition)"
 
 Write-Host "`nModels ready in: $ModelsDir"

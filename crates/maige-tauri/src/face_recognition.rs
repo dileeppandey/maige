@@ -1,21 +1,22 @@
 //! Face detection and embedding via ONNX Runtime.
 //!
 //! Expected models in `{app_data_dir}/models/`:
-//!   face_det.onnx — Ultraface RFB-320 (Apache 2.0)
-//!     source: github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB
-//!     file:   version-RFB-320.onnx  (rename to face_det.onnx)
-//!   face_emb.onnx — OpenCV SFace 112×112 (Apache 2.0)
-//!     source: github.com/opencv/opencv_zoo face_recognition_sface_2021dec.onnx
-//!     NOTE: SFace expects BGR channel ordering (unlike RGB-standard models).
+//!   face_det.onnx — SCRFD-500M (InsightFace / buffalo_sc)
+//!     source: huggingface.co/WePrompt/buffalo_sc  det_500m.onnx
 //!
-//! Detection model I/O:
-//!   input  "input"   [1, 3, 240, 320]  float32  normalised to [-1, 1]
-//!   output [0] scores [1, 4420, 2]     float32  [:, :, 1] = face probability
-//!   output [1] boxes  [1, 4420, 4]     float32  [x1, y1, x2, y2] in [0, 1]
+//!   face_emb.onnx — ArcFace w600k_r50 (InsightFace)
+//!     source: huggingface.co/maze/faceX  w600k_r50.onnx
 //!
-//! Embedding model I/O (SFace):
-//!   input  [1, 3, 112, 112]  float32  BGR channel order, (pixel − 127.5) / 128.0
-//!   output [1, 128]          float32  L2-normalised
+//! Detection model I/O (SCRFD det_500m):
+//!   input  "input.1"  [1, 3, H, W]  float32  (pixel − 127.5) / 128.0
+//!   outputs (9 tensors at 3 scales — strides 8, 16, 32):
+//!     scores:    [N_anchors, 1]   float32   face confidence (sigmoid)
+//!     boxes:     [N_anchors, 4]   float32   distance-based regression (l, t, r, b)
+//!     landmarks: [N_anchors, 10]  float32   5 keypoints × 2
+//!
+//! Embedding model I/O (ArcFace w600k_r50):
+//!   input  [1, 3, 112, 112]  float32  RGB, (pixel − 127.5) / 128.0
+//!   output [1, 512]          float32  L2-normalised embedding
 
 use std::path::Path;
 use anyhow::{anyhow, Context};
@@ -25,12 +26,18 @@ use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Tensor;
 
-const DET_W: u32 = 320;
-const DET_H: u32 = 240;
-const CONF_THRESHOLD: f32 = 0.7;
-const NMS_IOU_THRESHOLD: f32 = 0.45;
+/// SCRFD uses 640×640 input
+const DET_W: u32 = 640;
+const DET_H: u32 = 640;
+const CONF_THRESHOLD: f32 = 0.5;
+const NMS_IOU_THRESHOLD: f32 = 0.4;
 const EMB_SIZE: u32 = 112;
 const FACE_PAD: f32 = 0.10;
+
+/// SCRFD feature-map strides: outputs are grouped in sets of 3 (scores, boxes, landmarks)
+/// ordered by stride 8, 16, 32 — with 2 anchors per location for det_500m.
+const STRIDES: [u32; 3] = [8, 16, 32];
+const NUM_ANCHORS_PER_CELL: usize = 2;
 
 #[derive(Debug, Clone)]
 pub struct DetectedFace {
@@ -54,8 +61,8 @@ impl FaceRecognizer {
         if !det_path.exists() {
             return Err(anyhow!(
                 "face_det.onnx not found at {:?}. \
-                 Download version-RFB-320.onnx from \
-                 github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB \
+                 Download det_500m.onnx from \
+                 huggingface.co/WePrompt/buffalo_sc \
                  and rename it to face_det.onnx",
                 det_path
             ));
@@ -63,7 +70,9 @@ impl FaceRecognizer {
         if !emb_path.exists() {
             return Err(anyhow!(
                 "face_emb.onnx not found at {:?}. \
-                 Download a MobileFaceNet ONNX model and place it there",
+                 Download w600k_r50.onnx from \
+                 huggingface.co/maze/faceX \
+                 and rename it to face_emb.onnx",
                 emb_path
             ));
         }
@@ -91,55 +100,174 @@ impl FaceRecognizer {
 
     /// Detect faces; returns normalised (x, y, w, h) bboxes with NMS applied.
     pub fn detect(&mut self, img: &DynamicImage) -> anyhow::Result<Vec<DetectedFace>> {
-        let resized = img.resize_exact(DET_W, DET_H, FilterType::Triangle);
-        let rgb = resized.to_rgb8();
+        // Resize preserving aspect ratio, then letterbox into DET_W×DET_H
+        let resized = img.resize(DET_W, DET_H, FilterType::Triangle);
+        let rw = resized.width();
+        let rh = resized.height();
 
-        let mut input = Array4::<f32>::zeros((1, 3, DET_H as usize, DET_W as usize));
+        let dx = (DET_W - rw) / 2;
+        let dy = (DET_H - rh) / 2;
+
+        eprintln!("[detect] original={}x{} resized={}x{} padding=({},{})",
+            img.width(), img.height(), rw, rh, dx, dy);
+
+        // Pre-fill with 0.0 (normalised black = (0 - 127.5) / 128 ≈ -0.996)
+        let mut input = Array4::<f32>::from_elem((1, 3, DET_H as usize, DET_W as usize), 0.0);
+        let rgb = resized.to_rgb8();
         for (px, py, pixel) in rgb.enumerate_pixels() {
-            input[[0, 0, py as usize, px as usize]] = pixel[0] as f32 / 128.0 - 1.0;
-            input[[0, 1, py as usize, px as usize]] = pixel[1] as f32 / 128.0 - 1.0;
-            input[[0, 2, py as usize, px as usize]] = pixel[2] as f32 / 128.0 - 1.0;
+            let cx = (px + dx) as usize;
+            let cy = (py + dy) as usize;
+            input[[0, 0, cy, cx]] = (pixel[0] as f32 - 127.5) / 128.0;
+            input[[0, 1, cy, cx]] = (pixel[1] as f32 - 127.5) / 128.0;
+            input[[0, 2, cy, cx]] = (pixel[2] as f32 - 127.5) / 128.0;
         }
 
         let input_name = self.detector.inputs()[0].name().to_string();
         let input_tensor = Tensor::<f32>::from_array(input)?;
         let outputs = self.detector.run(ort::inputs![input_name => input_tensor])?;
 
-        let scores = outputs[0].try_extract_array::<f32>()?;
-        let boxes = outputs[1].try_extract_array::<f32>()?;
-        let num_anchors = scores.shape()[1];
-
-        let mut faces: Vec<DetectedFace> = Vec::new();
-        for i in 0..num_anchors {
-            let confidence = scores[[0, i, 1]];
-            if confidence < CONF_THRESHOLD { continue; }
-            let x1 = boxes[[0, i, 0]].clamp(0.0, 1.0);
-            let y1 = boxes[[0, i, 1]].clamp(0.0, 1.0);
-            let x2 = boxes[[0, i, 2]].clamp(0.0, 1.0);
-            let y2 = boxes[[0, i, 3]].clamp(0.0, 1.0);
-            if x2 <= x1 || y2 <= y1 { continue; }
-            faces.push(DetectedFace { x: x1, y: y1, w: x2 - x1, h: y2 - y1, confidence });
+        // Log output shapes for debugging
+        eprintln!("[detect] model produced {} outputs", outputs.len());
+        for (idx, output) in outputs.iter().enumerate() {
+            if let Ok(arr) = output.1.try_extract_array::<f32>() {
+                eprintln!("[detect]   output[{}]: shape={:?}", idx, arr.shape());
+            }
         }
 
+        // SCRFD det_500m produces 9 outputs: 3 strides × (scores, boxes, landmarks)
+        // Order: scores_8, scores_16, scores_32, boxes_8, boxes_16, boxes_32, kps_8, kps_16, kps_32
+        if outputs.len() < 6 {
+            return Err(anyhow!(
+                "Expected at least 6 outputs from SCRFD model, got {}",
+                outputs.len()
+            ));
+        }
+
+        let mut faces: Vec<DetectedFace> = Vec::new();
+
+        for scale_idx in 0..3 {
+            let scores_arr = outputs[scale_idx].try_extract_array::<f32>()?;
+            let boxes_arr = outputs[3 + scale_idx].try_extract_array::<f32>()?;
+
+            let stride = STRIDES[scale_idx] as f32;
+            let feat_h = DET_H as f32 / stride;
+            let feat_w = DET_W as f32 / stride;
+            let fh = feat_h as usize;
+            let fw = feat_w as usize;
+
+            let num_rows = scores_arr.shape()[0];
+            eprintln!("[detect] scale={} stride={} feat={}x{} anchors={} scores_shape={:?} boxes_shape={:?}",
+                scale_idx, stride, fw, fh, num_rows, scores_arr.shape(), boxes_arr.shape());
+
+            for row in 0..num_rows {
+                let conf = scores_arr[[row, 0]];
+                if conf < CONF_THRESHOLD {
+                    continue;
+                }
+
+                // Determine grid cell and anchor index
+                let anchor_idx = row / NUM_ANCHORS_PER_CELL;
+                let gy = anchor_idx / fw;
+                let gx = anchor_idx % fw;
+
+                // Anchor centre in pixel coordinates on the DET_W×DET_H canvas
+                let anchor_cx = (gx as f32 + 0.5) * stride;
+                let anchor_cy = (gy as f32 + 0.5) * stride;
+
+                // SCRFD box outputs are distances: (left, top, right, bottom) from anchor
+                let left   = boxes_arr[[row, 0]] * stride;
+                let top    = boxes_arr[[row, 1]] * stride;
+                let right  = boxes_arr[[row, 2]] * stride;
+                let bottom = boxes_arr[[row, 3]] * stride;
+
+                let x1_canvas = anchor_cx - left;
+                let y1_canvas = anchor_cy - top;
+                let x2_canvas = anchor_cx + right;
+                let y2_canvas = anchor_cy + bottom;
+
+                // Map from canvas coords back to the resized image, then normalise to [0, 1]
+                let x1 = ((x1_canvas - dx as f32) / rw as f32).clamp(0.0, 1.0);
+                let y1 = ((y1_canvas - dy as f32) / rh as f32).clamp(0.0, 1.0);
+                let x2 = ((x2_canvas - dx as f32) / rw as f32).clamp(0.0, 1.0);
+                let y2 = ((y2_canvas - dy as f32) / rh as f32).clamp(0.0, 1.0);
+
+                if x2 <= x1 || y2 <= y1 {
+                    continue;
+                }
+                faces.push(DetectedFace { x: x1, y: y1, w: x2 - x1, h: y2 - y1, confidence: conf });
+            }
+        }
+
+        eprintln!("[detect] {} candidates before NMS", faces.len());
         nms(&mut faces, NMS_IOU_THRESHOLD);
+        eprintln!("[detect] {} faces after NMS", faces.len());
         Ok(faces)
     }
 
-    /// Return a 128-d L2-normalised embedding for the face described by `bbox`.
+    /// Return an L2-normalised embedding for the face described by `bbox`.
+    /// Output dimension depends on the model (512-d for ArcFace w600k_r50).
     pub fn embed(&mut self, img: &DynamicImage, bbox: (f32, f32, f32, f32)) -> anyhow::Result<Vec<f32>> {
-        let (iw, ih) = (img.width() as f32, img.height() as f32);
+        let iw = img.width() as f32;
+        let ih = img.height() as f32;
         let (bx, by, bw, bh) = bbox;
 
         eprintln!("[embed] img={}x{} bbox=({:.3},{:.3},{:.3},{:.3})", iw, ih, bx, by, bw, bh);
 
-        let x1 = ((bx - bw * FACE_PAD) * iw).max(0.0) as u32;
-        let y1 = ((by - bh * FACE_PAD) * ih).max(0.0) as u32;
-        let x2 = ((bx + bw * (1.0 + FACE_PAD)) * iw).min(iw) as u32;
-        let y2 = ((by + bh * (1.0 + FACE_PAD)) * ih).min(ih) as u32;
+        // Center of the bounding box in pixels
+        let cx_px = (bx + bw / 2.0) * iw;
+        let cy_px = (by + bh / 2.0) * ih;
+
+        // Bounding box size in pixels
+        let bw_px = bw * iw;
+        let bh_px = bh * ih;
+
+        // Target crop dimension (square) before padding
+        let max_side = bw_px.max(bh_px);
+
+        // Target crop dimension with padding
+        let padded_side = max_side * (1.0 + 2.0 * FACE_PAD);
+        let half_side = padded_side / 2.0;
+
+        // Initial coordinates of the square crop in pixels
+        let x1_px = (cx_px - half_side).round() as i32;
+        let y1_px = (cy_px - half_side).round() as i32;
+        let x2_px = (cx_px + half_side).round() as i32;
+        let y2_px = (cy_px + half_side).round() as i32;
+
+        let cw_init = x2_px - x1_px;
+        let ch_init = y2_px - y1_px;
+        let side = cw_init.max(ch_init);
+
+        // Adjust bounds to be square and fit within the image boundaries
+        let mut x1 = x1_px;
+        let mut y1 = y1_px;
+
+        if x1 < 0 {
+            x1 = 0;
+        }
+        let mut x2 = x1 + side;
+        if x2 > iw as i32 {
+            x2 = iw as i32;
+            x1 = (x2 - side).max(0);
+        }
+
+        if y1 < 0 {
+            y1 = 0;
+        }
+        let mut y2 = y1 + side;
+        if y2 > ih as i32 {
+            y2 = ih as i32;
+            y1 = (y2 - side).max(0);
+        }
+
+        let x1 = x1 as u32;
+        let y1 = y1 as u32;
+        let x2 = x2 as u32;
+        let y2 = y2 as u32;
         let cw = x2.saturating_sub(x1).max(1);
         let ch = y2.saturating_sub(y1).max(1);
 
-        eprintln!("[embed] crop px: x1={} y1={} cw={} ch={}", x1, y1, cw, ch);
+        eprintln!("[embed] square crop px: x1={} y1={} cw={} ch={}", x1, y1, cw, ch);
 
         let face = img
             .crop_imm(x1, y1, cw, ch)
@@ -165,7 +293,7 @@ impl FaceRecognizer {
         let mx = pixels.iter().copied().max().unwrap_or(0);
         eprintln!("[embed] pixel stats: min={} max={} mean={:.1}", mn, mx, mean);
 
-        // SFace (OpenCV FaceRecognizerSF) internally uses swapRB=true → model expects RGB
+        // ArcFace expects RGB input, (pixel - 127.5) / 128.0
         let mut input = Array4::<f32>::zeros((1, 3, EMB_SIZE as usize, EMB_SIZE as usize));
         for (px, py, pixel) in face.enumerate_pixels() {
             input[[0, 0, py as usize, px as usize]] = (pixel[0] as f32 - 127.5) / 128.0; // R
@@ -223,12 +351,12 @@ fn iou(a: &DetectedFace, b: &DetectedFace) -> f32 {
 
 // ─── Complete-linkage Hierarchical Clustering ───────────────────────────────
 
-/// Cluster L2-normalised face embeddings using complete-linkage hierarchical clustering.
+/// Cluster L2-normalised face embeddings using average-linkage hierarchical clustering.
 ///
-/// At each step the two clusters whose MAXIMUM pairwise cosine distance is smallest
-/// are merged, as long as that distance is below `threshold`.  This prevents the
-/// "chaining" problem that plagues DBSCAN when a single ambiguous face bridges
-/// two otherwise distinct groups.
+/// At each step the two clusters whose AVERAGE pairwise cosine distance is smallest
+/// are merged, as long as that distance is below `threshold`.  Average-linkage is a
+/// good balance for face recognition — less prone to over-splitting than complete-linkage
+/// while avoiding the chaining effect of single-linkage.
 ///
 /// Clusters smaller than `min_pts` are discarded.
 pub fn hierarchical_cluster(
@@ -257,23 +385,25 @@ pub fn hierarchical_cluster(
     loop {
         if clusters.len() <= 1 { break; }
 
-        // Find the pair of clusters with the smallest COMPLETE-LINKAGE distance
-        // (i.e. the smallest "worst-case" distance between the two groups)
+        // Find the pair of clusters with the smallest AVERAGE-LINKAGE distance
+        // (i.e. the mean of all pairwise distances between the two groups)
         let mut best_dist = f32::INFINITY;
         let mut best_i = 0;
         let mut best_j = 1;
 
         for i in 0..clusters.len() {
             for j in (i + 1)..clusters.len() {
-                let max_d = {
+                let avg_d = {
                     let d = &dist;
-                    clusters[i].iter()
+                    let pairs = clusters[i].len() * clusters[j].len();
+                    let sum: f32 = clusters[i].iter()
                         .flat_map(|&a| clusters[j].iter().map(move |&b| d[a * n + b]))
-                        .fold(0f32, f32::max)
+                        .sum();
+                    sum / pairs as f32
                 };
 
-                if max_d < best_dist {
-                    best_dist = max_d;
+                if avg_d < best_dist {
+                    best_dist = avg_d;
                     best_i = i;
                     best_j = j;
                 }

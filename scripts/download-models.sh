@@ -30,14 +30,14 @@ download_model() {
 }
 
 download_model \
-    "https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/raw/master/models/onnx/version-RFB-320.onnx" \
+    "https://huggingface.co/WePrompt/buffalo_sc/resolve/main/det_500m.onnx" \
     "$MODELS_DIR/face_det.onnx" \
-    "face_det.onnx (Ultraface RFB-320)"
+    "face_det.onnx (SCRFD Face Detection with Landmarks)"
 
 download_model \
-    "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx" \
+    "https://huggingface.co/maze/faceX/resolve/main/w600k_r50.onnx" \
     "$MODELS_DIR/face_emb.onnx" \
-    "face_emb.onnx (OpenCV SFace)"
+    "face_emb.onnx (ArcFace State-of-the-Art Recognition)"
 
 echo ""
 echo "Models ready in: $MODELS_DIR"

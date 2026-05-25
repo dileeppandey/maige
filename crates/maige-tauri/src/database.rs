@@ -1069,7 +1069,7 @@ pub async fn reset_face_data(app: &AppHandle) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Persist a 128-d face embedding (stored as raw little-endian f32 bytes).
+/// Persist a face embedding (stored as raw little-endian f32 bytes; dimension depends on model).
 pub async fn save_face_embedding(app: &AppHandle, face_id: i64, embedding: &[f32]) -> anyhow::Result<()> {
     let db_path = get_db_path(app);
     let conn = Connection::open(&db_path)?;

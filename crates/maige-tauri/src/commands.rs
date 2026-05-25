@@ -442,7 +442,7 @@ pub async fn cluster_faces(app: AppHandle) -> CmdResult<Vec<FaceCluster>> {
             face_id, emb.len(), norm, &emb[..emb.len().min(4)]);
     }
     // Print full pairwise cosine-distance matrix
-    eprintln!("[cluster_faces] Pairwise cosine distances (threshold = 0.20):");
+    eprintln!("[cluster_faces] Pairwise cosine distances (threshold = 0.45, avg-linkage):");
     for i in 0..embeddings.len() {
         let mut row = String::new();
         for j in 0..embeddings.len() {
@@ -454,10 +454,10 @@ pub async fn cluster_faces(app: AppHandle) -> CmdResult<Vec<FaceCluster>> {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    // Complete-linkage hierarchical clustering:
-    //   threshold=0.20  — two clusters merge only when their worst-case pair is < 0.20
+    // Average-linkage hierarchical clustering:
+    //   threshold=0.45  — two clusters merge when their average pairwise cosine distance is < 0.45
     //   min_pts=1       — a single face from an unknown person still shows as its own cluster
-    let groups = face_recognition::hierarchical_cluster(&embeddings, 0.20, 1);
+    let groups = face_recognition::hierarchical_cluster(&embeddings, 0.45, 1);
     eprintln!("[cluster_faces] {} clusters formed", groups.len());
 
     let clusters = groups.into_iter().map(|face_ids| FaceCluster {

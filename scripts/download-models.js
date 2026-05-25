@@ -27,14 +27,14 @@ const ORT_DLL_URL = `https://github.com/microsoft/onnxruntime/releases/download/
 
 const MODELS = [
     {
-        name: 'face_det.onnx (Ultraface RFB-320)',
+        name: 'face_det.onnx (SCRFD Face Detection with Landmarks)',
         dest: path.join(modelsDir, 'face_det.onnx'),
-        url: 'https://github.com/Linzaer/Ultra-Light-Fast-Generic-Face-Detector-1MB/raw/master/models/onnx/version-RFB-320.onnx',
+        url: 'https://huggingface.co/WePrompt/buffalo_sc/resolve/main/det_500m.onnx',
     },
     {
-        name: 'face_emb.onnx (OpenCV Zoo SFace)',
+        name: 'face_emb.onnx (ArcFace State-of-the-Art Recognition)',
         dest: path.join(modelsDir, 'face_emb.onnx'),
-        url: 'https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx',
+        url: 'https://huggingface.co/maze/faceX/resolve/main/w600k_r50.onnx',
     },
 ];
 
