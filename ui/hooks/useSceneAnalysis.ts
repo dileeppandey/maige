@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useChatStore } from '../store/useChatStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import type { ChatMessage } from '../../shared/types';
 
 /** Set to true to automatically analyse every image as soon as it is opened. */
@@ -19,12 +20,24 @@ export function useSceneAnalysis(selectedPath: string | null) {
     const setAnalyzing = useChatStore((s) => s.setAnalyzing);
     const setOllamaAvailable = useChatStore((s) => s.setOllamaAvailable);
 
+    // Read AI provider setting
+    const aiProvider = useSettingsStore((s) => s.settings.ai_provider);
+
     // Check Ollama on mount
     useEffect(() => {
         window.api.checkOllamaStatus().then((ok: boolean) => {
             setOllamaAvailable(ok);
         });
     }, [setOllamaAvailable]);
+
+    // Helper to wrap promises with a timeout
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+        Promise.race([
+            promise,
+            new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), ms)
+            ),
+        ]);
 
     useEffect(() => {
         // Always update the ref so in-flight callbacks can detect a switch
@@ -38,7 +51,7 @@ export function useSceneAnalysis(selectedPath: string | null) {
         // NOTE: do NOT call clearMessages() here — ChatPanel loads DB history for the
         // selected image asynchronously. Clearing here would race with and wipe that load.
 
-        if (!AUTO_ANALYSE_ON_OPEN) return;
+        if (!AUTO_ANALYSE_ON_OPEN || aiProvider === 'none') return;
         if (analyzedPaths.current.has(selectedPath)) return;
 
         timerRef.current = setTimeout(async () => {
@@ -56,7 +69,10 @@ export function useSceneAnalysis(selectedPath: string | null) {
             setAnalyzing(true);
 
             try {
-                const result = await window.api.analyzeImageScene(pathAtStart) as {
+                const result = await withTimeout(
+                    window.api.analyzeImageScene(pathAtStart),
+                    30000  // 30-second timeout
+                ) as {
                     message: string;
                     adjustments: null;
                     suggestions: Array<{ label: string; adjustments: Record<string, number> }>;
@@ -86,6 +102,8 @@ export function useSceneAnalysis(selectedPath: string | null) {
                     suggestions: result.suggestions?.length ? JSON.stringify(result.suggestions) : null,
                     timestamp: msg.timestamp,
                 });
+            } catch {
+                // Silently discard timeout errors (background operation, non-critical)
             } finally {
                 if (pathAtStart === currentPathRef.current) setAnalyzing(false);
             }
@@ -94,5 +112,5 @@ export function useSceneAnalysis(selectedPath: string | null) {
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [selectedPath, addMessage, setAnalyzing, setOllamaAvailable]);
+    }, [selectedPath, aiProvider, addMessage, setAnalyzing, setOllamaAvailable]);
 }

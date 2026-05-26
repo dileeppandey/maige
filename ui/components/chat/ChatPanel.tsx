@@ -1,8 +1,9 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Crosshair, BookOpen, Send, X, Loader2, Check } from 'lucide-react';
+import { Crosshair, BookOpen, Send, X, Loader2, Check, RotateCcw } from 'lucide-react';
 import { useChatStore } from '../../store/useChatStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useEditStore } from '../../store/useEditStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { flattenAdjustments } from '../../utils/adjustments';
 import { AdjustmentSlider } from '../adjustments/AdjustmentSlider';
 import type { ChatMessage, FlatAdjustments, ImageAdjustments, LightAdjustments, ColorAdjustments } from '../../../shared/types';
@@ -52,9 +53,16 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
 
     const setRegionSelectMode = useUIStore((s) => s.setRegionSelectMode);
 
+    // Read AI provider setting
+    const aiProvider = useSettingsStore((s) => s.settings.ai_provider);
+    const setOllamaAvailable = useChatStore((s) => s.setOllamaAvailable);
+
     // Use the same update functions the Develop panel uses — they're proven to work
     const updateLightAdjustment = useEditStore((s) => s.updateLightAdjustment);
     const updateColorAdjustment = useEditStore((s) => s.updateColorAdjustment);
+
+    // Compute whether AI is available: Ollama running AND ai_provider is 'ollama'
+    const isAIAvailable = ollamaAvailable === true && aiProvider === 'ollama';
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -108,9 +116,18 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
         }
     }, [selectedImagePath, updateLightAdjustment, updateColorAdjustment]);
 
+    // Helper to wrap promises with a timeout
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+        Promise.race([
+            promise,
+            new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error(`AI request timed out after ${ms / 1000} seconds`)), ms)
+            ),
+        ]);
+
     const sendMessage = useCallback(async () => {
         const text = input.trim();
-        if (!text || !selectedImagePath || isAnalyzing) return;
+        if (!text || !selectedImagePath || isAnalyzing || !isAIAvailable) return;
         setInput('');
 
         // Capture path at send-time so we can detect if the user switches images
@@ -138,11 +155,14 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
 
         setAnalyzing(true);
         try {
-            const result = await window.api.chatEditImage(
-                pathAtSend,
-                text,
-                flattenAdjustments(adjustments),
-                regionBase64,
+            const result = await withTimeout(
+                window.api.chatEditImage(
+                    pathAtSend,
+                    text,
+                    flattenAdjustments(adjustments),
+                    regionBase64,
+                ),
+                30000  // 30-second timeout
             ) as { message: string; adjustments: FlatAdjustments | null; suggestions: Array<{ label: string; adjustments: FlatAdjustments }> };
 
             // If the user switched to a different image while awaiting, discard the response.
@@ -173,11 +193,32 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
             if (result.adjustments) {
                 applyFlat(result.adjustments);
             }
+        } catch (err) {
+            // Handle timeout and other errors
+            if (err instanceof Error && err.message.includes('timed out')) {
+                const timeoutMsg: ChatMessage = {
+                    id: newId(),
+                    role: 'assistant',
+                    content: err.message,
+                    timestamp: new Date().toISOString(),
+                };
+                if (pathAtSend === activePathRef.current) {
+                    addMessage(timeoutMsg);
+                    window.api.saveChatMessage({
+                        id: timeoutMsg.id,
+                        imagePath: pathAtSend,
+                        role: timeoutMsg.role,
+                        content: timeoutMsg.content,
+                        timestamp: timeoutMsg.timestamp,
+                    });
+                }
+            }
+            // Other errors are handled by bridge.ts fallback messages
         } finally {
             // Only clear the analyzing spinner if we're still on the same image
             if (pathAtSend === activePathRef.current) setAnalyzing(false);
         }
-    }, [input, selectedImagePath, isAnalyzing, adjustments, pendingRegion, addMessage, setPendingRegion, setAnalyzing, applyFlat]);
+    }, [input, selectedImagePath, isAnalyzing, isAIAvailable, adjustments, pendingRegion, activePathRef, addMessage, setPendingRegion, setAnalyzing, applyFlat]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -193,12 +234,37 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-300 uppercase tracking-wide">AI Assistant</span>
                     <span
-                        title={ollamaAvailable === null ? 'Checking...' : ollamaAvailable ? 'Ollama connected' : 'Ollama offline'}
+                        title={
+                            aiProvider === 'none'
+                                ? 'AI features disabled'
+                                : ollamaAvailable === null
+                                ? 'Checking...'
+                                : ollamaAvailable
+                                ? 'Ollama connected'
+                                : 'Ollama offline'
+                        }
                         className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            ollamaAvailable === null ? 'bg-gray-500' :
-                            ollamaAvailable ? 'bg-green-500' : 'bg-red-500'
+                            aiProvider === 'none'
+                                ? 'bg-gray-500'
+                                : ollamaAvailable === null
+                                ? 'bg-gray-500'
+                                : ollamaAvailable
+                                ? 'bg-green-500'
+                                : 'bg-red-500'
                         }`}
                     />
+                    {aiProvider === 'ollama' && ollamaAvailable === false && (
+                        <button
+                            onClick={async () => {
+                                const ok = await window.api.checkOllamaStatus();
+                                setOllamaAvailable(ok);
+                            }}
+                            title="Re-check Ollama status"
+                            className="p-0.5 rounded text-gray-500 hover:text-gray-300 hover:bg-[#333] transition-colors"
+                        >
+                            <RotateCcw size={12} />
+                        </button>
+                    )}
                 </div>
                 <div className="flex items-center gap-1">
                     <button
@@ -224,7 +290,11 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                 {messages.length === 0 && (
                     <div className="text-center text-gray-600 text-xs mt-8 px-4">
                         {selectedImagePath
-                            ? 'Describe how you want to edit this image, or select a region for targeted edits.'
+                            ? aiProvider === 'none'
+                                ? 'AI features are disabled. Enable in Preferences > AI Assistant.'
+                                : ollamaAvailable === false
+                                ? 'Ollama is offline. Check Preferences > AI Assistant or click the refresh button above.'
+                                : 'Describe how you want to edit this image, or select a region for targeted edits.'
                             : 'Open an image to start chatting.'}
                     </div>
                 )}
@@ -268,15 +338,16 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    disabled={!selectedImagePath || isAnalyzing}
-                    placeholder="Describe your edit…"
+                    disabled={!selectedImagePath || isAnalyzing || !isAIAvailable}
+                    placeholder={isAIAvailable ? 'Describe your edit…' : 'AI features disabled or offline'}
                     rows={2}
                     className="flex-1 bg-[#1a1a1a] text-white text-xs rounded border border-[#444] px-2 py-1.5 resize-none focus:outline-none focus:border-blue-500 placeholder-gray-600 disabled:opacity-50"
                 />
                 <button
                     onClick={sendMessage}
-                    disabled={!input.trim() || !selectedImagePath || isAnalyzing}
+                    disabled={!input.trim() || !selectedImagePath || isAnalyzing || !isAIAvailable}
                     className="p-2 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title={!isAIAvailable ? 'AI is not available' : 'Send message'}
                 >
                     <Send size={13} className="text-white" />
                 </button>

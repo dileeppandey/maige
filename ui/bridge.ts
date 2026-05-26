@@ -510,15 +510,26 @@ const apiImpl = {
     analyzeImageScene: (
         imagePath: string,
         region?: { x: number; y: number; width: number; height: number },
-    ) =>
-        invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
-            'analyze_image_scene',
-            { imagePath, region: region ?? null },
+    ) => {
+        const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+            Promise.race([
+                promise,
+                new Promise<T>((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), ms)
+                ),
+            ]);
+        return withTimeout(
+            invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
+                'analyze_image_scene',
+                { imagePath, region: region ?? null },
+            ),
+            30000  // 30-second timeout
         ).catch(() => ({
             message: 'AI assistant unavailable — is Ollama running with gemma3:4b?',
             adjustments: null,
             suggestions: [],
-        })),
+        }));
+    },
 
     chatEditImage: (
         imagePath: string,
@@ -529,15 +540,26 @@ const apiImpl = {
             saturation: number; vibrance: number;
         },
         regionBase64?: string,
-    ) =>
-        invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
-            'chat_edit_image',
-            { imagePath, instruction, currentAdjustments, regionBase64: regionBase64 ?? null },
+    ) => {
+        const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+            Promise.race([
+                promise,
+                new Promise<T>((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), ms)
+                ),
+            ]);
+        return withTimeout(
+            invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
+                'chat_edit_image',
+                { imagePath, instruction, currentAdjustments, regionBase64: regionBase64 ?? null },
+            ),
+            30000  // 30-second timeout
         ).catch(() => ({
             message: 'AI assistant unavailable — is Ollama running with gemma3:4b?',
             adjustments: null,
             suggestions: [],
-        })),
+        }));
+    },
 
     saveChatMessage: (msg: {
         id: string;
