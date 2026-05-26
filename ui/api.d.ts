@@ -88,6 +88,10 @@ declare global {
                 currentAdjustments: Record<string, number>,
                 regionBase64?: string,
             ) => Promise<{ message: string; adjustments: unknown | null; suggestions: Array<{ label: string; adjustments: Record<string, number> }> }>;
+
+            // Settings
+            getSettings: () => Promise<Record<string, string>>;
+            saveSetting: (key: string, value: string) => Promise<void>;
         };
     }
 }

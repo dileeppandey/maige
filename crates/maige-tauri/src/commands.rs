@@ -524,3 +524,17 @@ pub async fn reload_face_models(
         models_dir: models_dir.to_string_lossy().to_string(),
     })
 }
+
+// ============================================================================
+// Settings
+// ============================================================================
+
+#[tauri::command]
+pub async fn get_settings(app: AppHandle) -> CmdResult<std::collections::HashMap<String, String>> {
+    database::get_settings(&app).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_setting(app: AppHandle, key: String, value: String) -> CmdResult<()> {
+    database::save_setting(&app, &key, &value).await.map_err(|e| e.to_string())
+}

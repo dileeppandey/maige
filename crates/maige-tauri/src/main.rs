@@ -22,6 +22,8 @@ fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         &MenuItem::with_id(app, "import_images", "Import Images...", true, Some("CmdOrCtrl+Shift+I"))?,
         &MenuItem::with_id(app, "close_folder", "Close Folder", true, None::<&str>)?,
         &PredefinedMenuItem::separator(app)?,
+        &MenuItem::with_id(app, "preferences", "Preferences...", true, Some("CmdOrCtrl+,"))?,
+        &PredefinedMenuItem::separator(app)?,
         &PredefinedMenuItem::quit(app, None)?,
     ])?;
 
@@ -118,6 +120,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         "toggle_panel_library"     => serde_json::json!({ "action": "togglePanel", "data": "library" }),
         "toggle_panel_develop"     => serde_json::json!({ "action": "togglePanel", "data": "develop" }),
         "toggle_panel_filmstrip"   => serde_json::json!({ "action": "togglePanel", "data": "filmstrip" }),
+        "preferences"              => serde_json::json!({ "action": "openPreferences" }),
         _ => return,
     };
 
@@ -206,6 +209,9 @@ fn main() {
             commands::cluster_faces,
             commands::reset_face_data,
             commands::reload_face_models,
+            // Settings
+            commands::get_settings,
+            commands::save_setting,
         ])
         .manage(FaceRecognizerState(tokio::sync::Mutex::new(None)))
         .setup(|app| {

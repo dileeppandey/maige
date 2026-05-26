@@ -443,6 +443,25 @@ const apiImpl = {
         }
     },
 
+    // ================== Settings ==================
+
+    getSettings: async (): Promise<Record<string, string>> => {
+        try {
+            return await invoke<Record<string, string>>('get_settings');
+        } catch (e) {
+            console.error('getSettings error:', e);
+            return {};
+        }
+    },
+
+    saveSetting: async (key: string, value: string): Promise<void> => {
+        try {
+            await invoke('save_setting', { key, value });
+        } catch (e) {
+            console.error('saveSetting error:', e);
+        }
+    },
+
     // ================== Event Listeners ==================
 
     onMenuAction: (callback: (action: string, data?: unknown) => void) => {
