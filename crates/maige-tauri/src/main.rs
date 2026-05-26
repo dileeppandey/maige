@@ -203,6 +203,8 @@ fn main() {
             commands::check_ollama_status,
             commands::analyze_image_scene,
             commands::chat_edit_image,
+            commands::save_chat_message,
+            commands::get_chat_messages,
             // Face recognition (ONNX)
             commands::check_models_status,
             commands::detect_and_embed_faces,

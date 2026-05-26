@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type ReactNode, type WheelEvent, type MouseEvent } from 'react'
-import { ZoomIn, ZoomOut, Maximize, Square, Hand, Download } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize, Square, Hand, SaveAll } from 'lucide-react'
 import { useImageViewer } from '../../hooks/useImageViewer'
 import { ExportModal } from '../ExportModal'
 import type { ImageAdjustments } from '../../../shared/types'
@@ -314,10 +314,10 @@ export function ImageViewer({
                 <button
                     onClick={handleExportClick}
                     disabled={isLoading || !!error}
-                    className="p-1 hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed text-green-400 hover:text-green-300"
-                    title="Export Image"
+                    className="p-1 hover:bg-[#333333] rounded disabled:opacity-30 disabled:cursor-not-allowed text-gray-400 hover:text-white"
+                    title="Save / Export Image"
                 >
-                    <Download size={14} />
+                    <SaveAll size={14} />
                 </button>
             </div>
 

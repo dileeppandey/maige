@@ -259,6 +259,19 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id TEXT PRIMARY KEY,
+            image_path TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            adjustments TEXT,
+            suggestions TEXT,
+            region_base64 TEXT,
+            timestamp TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_image_path ON chat_messages(image_path);
         "#,
     )?;
 
@@ -1145,4 +1158,72 @@ pub async fn save_setting(app: &AppHandle, key: &str, value: &str) -> anyhow::Re
     )?;
 
     Ok(())
+}
+
+// ============================================================================
+// Chat message persistence
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DbChatMessage {
+    pub id: String,
+    pub image_path: String,
+    pub role: String,
+    pub content: String,
+    pub adjustments: Option<String>,
+    pub suggestions: Option<String>,
+    pub region_base64: Option<String>,
+    pub timestamp: String,
+}
+
+/// Persist a single chat message for an image.
+pub async fn save_chat_message(app: &AppHandle, msg: &DbChatMessage) -> anyhow::Result<()> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO chat_messages
+            (id, image_path, role, content, adjustments, suggestions, region_base64, timestamp)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            msg.id,
+            msg.image_path,
+            msg.role,
+            msg.content,
+            msg.adjustments,
+            msg.suggestions,
+            msg.region_base64,
+            msg.timestamp,
+        ],
+    )?;
+
+    Ok(())
+}
+
+/// Retrieve all chat messages for an image, ordered by timestamp ascending.
+pub async fn get_chat_messages(app: &AppHandle, image_path: &str) -> anyhow::Result<Vec<DbChatMessage>> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, image_path, role, content, adjustments, suggestions, region_base64, timestamp
+         FROM chat_messages
+         WHERE image_path = ?1
+         ORDER BY timestamp ASC",
+    )?;
+
+    let rows = stmt.query_map([image_path], |row| {
+        Ok(DbChatMessage {
+            id: row.get(0)?,
+            image_path: row.get(1)?,
+            role: row.get(2)?,
+            content: row.get(3)?,
+            adjustments: row.get(4)?,
+            suggestions: row.get(5)?,
+            region_base64: row.get(6)?,
+            timestamp: row.get(7)?,
+        })
+    })?;
+
+    Ok(rows.filter_map(|r| r.ok()).collect())
 }

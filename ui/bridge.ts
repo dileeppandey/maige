@@ -538,6 +538,39 @@ const apiImpl = {
             adjustments: null,
             suggestions: [],
         })),
+
+    saveChatMessage: (msg: {
+        id: string;
+        imagePath: string;
+        role: string;
+        content: string;
+        adjustments?: string | null;
+        suggestions?: string | null;
+        regionBase64?: string | null;
+        timestamp: string;
+    }) =>
+        invoke<void>('save_chat_message', {
+            id: msg.id,
+            imagePath: msg.imagePath,
+            role: msg.role,
+            content: msg.content,
+            adjustments: msg.adjustments ?? null,
+            suggestions: msg.suggestions ?? null,
+            regionBase64: msg.regionBase64 ?? null,
+            timestamp: msg.timestamp,
+        }).catch(() => {}),
+
+    getChatMessages: (imagePath: string) =>
+        invoke<Array<{
+            id: string;
+            image_path: string;
+            role: string;
+            content: string;
+            adjustments: string | null;
+            suggestions: string | null;
+            region_base64: string | null;
+            timestamp: string;
+        }>>('get_chat_messages', { imagePath }).catch(() => []),
 };
 
 // Assign to window

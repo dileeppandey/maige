@@ -38,12 +38,15 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
     const [input, setInput] = useState('');
     const [showRecipes, setShowRecipes] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    // Tracks the most-recently-selected path so in-flight AI responses can detect staleness
+    const activePathRef = useRef<string | null>(null);
 
     const messages = useChatStore((s) => s.messages);
     const pendingRegion = useChatStore((s) => s.pendingRegion);
     const isAnalyzing = useChatStore((s) => s.isAnalyzing);
     const ollamaAvailable = useChatStore((s) => s.ollamaAvailable);
     const addMessage = useChatStore((s) => s.addMessage);
+    const setMessages = useChatStore((s) => s.setMessages);
     const setPendingRegion = useChatStore((s) => s.setPendingRegion);
     const setAnalyzing = useChatStore((s) => s.setAnalyzing);
 
@@ -56,6 +59,33 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Keep activePathRef in sync so sendMessage's async callback can detect stale responses
+    useEffect(() => {
+        activePathRef.current = selectedImagePath;
+    }, [selectedImagePath]);
+
+    // Load persisted chat history whenever the selected image changes
+    useEffect(() => {
+        if (!selectedImagePath) {
+            setMessages([]);
+            return;
+        }
+        window.api.getChatMessages(selectedImagePath).then((rows) => {
+            // Guard: ignore if the user switched again before this resolved
+            if (selectedImagePath !== activePathRef.current) return;
+            const loaded: ChatMessage[] = rows.map((r) => ({
+                id: r.id,
+                role: r.role as 'user' | 'assistant',
+                content: r.content,
+                adjustments: r.adjustments ? JSON.parse(r.adjustments) : undefined,
+                suggestions: r.suggestions ? JSON.parse(r.suggestions) : undefined,
+                regionBase64: r.region_base64 ?? undefined,
+                timestamp: r.timestamp,
+            }));
+            setMessages(loaded);
+        });
+    }, [selectedImagePath, setMessages]);
 
     // Apply a full FlatAdjustments object by routing each field to the correct updater
     const applyFlat = useCallback((flat: FlatAdjustments) => {
@@ -83,6 +113,10 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
         if (!text || !selectedImagePath || isAnalyzing) return;
         setInput('');
 
+        // Capture path at send-time so we can detect if the user switches images
+        // while the AI call is in-flight
+        const pathAtSend = selectedImagePath;
+
         const regionBase64 = pendingRegion?.base64;
         const userMsg: ChatMessage = {
             id: newId(),
@@ -92,16 +126,29 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
             timestamp: new Date().toISOString(),
         };
         addMessage(userMsg);
+        window.api.saveChatMessage({
+            id: userMsg.id,
+            imagePath: pathAtSend,
+            role: userMsg.role,
+            content: userMsg.content,
+            regionBase64: userMsg.regionBase64 ?? null,
+            timestamp: userMsg.timestamp,
+        });
         if (pendingRegion) setPendingRegion(null);
 
         setAnalyzing(true);
         try {
             const result = await window.api.chatEditImage(
-                selectedImagePath,
+                pathAtSend,
                 text,
                 flattenAdjustments(adjustments),
                 regionBase64,
             ) as { message: string; adjustments: FlatAdjustments | null; suggestions: Array<{ label: string; adjustments: FlatAdjustments }> };
+
+            // If the user switched to a different image while awaiting, discard the response.
+            // The user message was already saved to DB for the correct image; the assistant
+            // response would belong to the wrong chat context if we applied it now.
+            if (pathAtSend !== activePathRef.current) return;
 
             const assistantMsg: ChatMessage = {
                 id: newId(),
@@ -112,13 +159,23 @@ export function ChatPanel({ selectedImagePath, adjustments }: ChatPanelProps) {
                 timestamp: new Date().toISOString(),
             };
             addMessage(assistantMsg);
+            window.api.saveChatMessage({
+                id: assistantMsg.id,
+                imagePath: pathAtSend,
+                role: assistantMsg.role,
+                content: assistantMsg.content,
+                adjustments: result.adjustments ? JSON.stringify(result.adjustments) : null,
+                suggestions: result.suggestions?.length ? JSON.stringify(result.suggestions) : null,
+                timestamp: assistantMsg.timestamp,
+            });
 
             // Auto-apply chat response adjustments immediately
             if (result.adjustments) {
                 applyFlat(result.adjustments);
             }
         } finally {
-            setAnalyzing(false);
+            // Only clear the analyzing spinner if we're still on the same image
+            if (pathAtSend === activePathRef.current) setAnalyzing(false);
         }
     }, [input, selectedImagePath, isAnalyzing, adjustments, pendingRegion, addMessage, setPendingRegion, setAnalyzing, applyFlat]);
 
