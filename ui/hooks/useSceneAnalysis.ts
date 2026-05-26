@@ -48,6 +48,9 @@ export function useSceneAnalysis(selectedPath: string | null) {
                     suggestions: Array<{ label: string; adjustments: Record<string, number> }>;
                 };
 
+                // Only add the message if we got actual suggestions (skip Ollama error responses)
+                if (!result.suggestions?.length && !result.adjustments) return;
+
                 const msg: ChatMessage = {
                     id: newId(),
                     role: 'assistant',

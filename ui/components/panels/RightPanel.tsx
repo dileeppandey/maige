@@ -46,45 +46,45 @@ export function RightPanel({
     return (
         <div className="h-full w-full flex flex-col bg-[#252525] border-l border-r border-[#333333]">
             {/* Tab Bar */}
-            <div className="h-10 flex items-center border-b border-[#333333] bg-[#1f1f1f]">
+            <div className="h-10 flex items-center border-b border-[#333333] bg-[#1f1f1f] overflow-hidden">
                 <button
                     onClick={() => setActiveTab('develop')}
                     className={`
-                        flex items-center justify-center gap-1.5 h-full px-4 text-xs font-medium uppercase tracking-wide transition-colors
+                        flex-1 flex items-center justify-center gap-1.5 h-full px-2 text-xs font-medium uppercase tracking-wide transition-colors min-w-0
                         ${activeTab === 'develop'
                             ? 'text-white bg-[#252525] border-b-2 border-blue-500'
                             : 'text-gray-500 hover:text-gray-300 hover:bg-[#252525]/50'
                         }
                     `}
                 >
-                    <Sliders size={12} />
-                    Develop
+                    <Sliders size={12} className="flex-shrink-0" />
+                    <span className="truncate">Develop</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('details')}
                     className={`
-                        flex items-center justify-center gap-1.5 h-full px-4 text-xs font-medium uppercase tracking-wide transition-colors
+                        flex-1 flex items-center justify-center gap-1.5 h-full px-2 text-xs font-medium uppercase tracking-wide transition-colors min-w-0
                         ${activeTab === 'details'
                             ? 'text-white bg-[#252525] border-b-2 border-blue-500'
                             : 'text-gray-500 hover:text-gray-300 hover:bg-[#252525]/50'
                         }
                     `}
                 >
-                    <Info size={12} />
-                    Details
+                    <Info size={12} className="flex-shrink-0" />
+                    <span className="truncate">Details</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('chat')}
                     className={`
-                        flex items-center justify-center gap-1.5 h-full px-4 text-xs font-medium uppercase tracking-wide transition-colors
+                        flex-1 flex items-center justify-center gap-1.5 h-full px-2 text-xs font-medium uppercase tracking-wide transition-colors min-w-0
                         ${activeTab === 'chat'
                             ? 'text-white bg-[#252525] border-b-2 border-blue-500'
                             : 'text-gray-500 hover:text-gray-300 hover:bg-[#252525]/50'
                         }
                     `}
                 >
-                    <MessageSquare size={12} />
-                    Chat
+                    <MessageSquare size={12} className="flex-shrink-0" />
+                    <span className="truncate">Chat</span>
                 </button>
             </div>
 
