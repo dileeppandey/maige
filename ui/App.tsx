@@ -10,9 +10,11 @@ import { ResizableLayout } from './components/layout/ResizableLayout'
 import { FloatingActionBar } from './components/FloatingActionBar'
 import { PickModeHeader } from './components/PickModeHeader'
 import { CreateAlbumModal } from './components/CreateAlbumModal'
+import { PreferencesModal } from './components/PreferencesModal'
 import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useUIStore } from './store/useUIStore'
+import { useSettingsStore } from './store/useSettingsStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
 import { useSceneAnalysis } from './hooks/useSceneAnalysis'
 import { useCallback } from 'react'
@@ -52,6 +54,14 @@ function App() {
 
   // Get search state from library store
   const { searchResults, viewMode, showAllPhotos, selectedAlbumId, stats, selectedCluster } = useLibraryStore()
+
+  // Load settings from DB at startup
+  const { loadSettings } = useSettingsStore()
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
+
+  const [showPreferencesModal, setShowPreferencesModal] = React.useState(false)
 
   // Local state for file management
   const [selectedFile, setSelectedFile] = React.useState<FileInfo | null>(null)
@@ -309,6 +319,9 @@ function App() {
         case 'newAlbum':
           setShowCreateAlbumModal(true)
           break
+        case 'openPreferences':
+          setShowPreferencesModal(true)
+          break
         case 'semanticSearch':
           // Focus search bar or trigger search logic
           break
@@ -424,6 +437,12 @@ function App() {
       <CreateAlbumModal
         isOpen={showCreateAlbumModal}
         onClose={() => setShowCreateAlbumModal(false)}
+      />
+
+      {/* Preferences Modal */}
+      <PreferencesModal
+        isOpen={showPreferencesModal}
+        onClose={() => setShowPreferencesModal(false)}
       />
 
     </div>

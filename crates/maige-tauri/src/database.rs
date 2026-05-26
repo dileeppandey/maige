@@ -254,6 +254,11 @@ pub async fn init(app: &AppHandle) -> anyhow::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_faces_image_id ON faces(image_id);
         CREATE INDEX IF NOT EXISTS idx_faces_person_id ON faces(person_id);
         CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id);
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         "#,
     )?;
 
@@ -1110,4 +1115,34 @@ pub async fn get_unidentified_face_embeddings(app: &AppHandle) -> anyhow::Result
         .collect();
 
     Ok(results)
+}
+
+// ============================================================================
+// Settings
+// ============================================================================
+
+/// Get all settings as a key-value map
+pub async fn get_settings(app: &AppHandle) -> anyhow::Result<std::collections::HashMap<String, String>> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+
+    Ok(rows.filter_map(|r| r.ok()).collect())
+}
+
+/// Upsert a single setting by key
+pub async fn save_setting(app: &AppHandle, key: &str, value: &str) -> anyhow::Result<()> {
+    let db_path = get_db_path(app);
+    let conn = Connection::open(&db_path)?;
+
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+        params![key, value],
+    )?;
+
+    Ok(())
 }
