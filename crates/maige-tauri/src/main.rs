@@ -4,6 +4,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai_chat;
 mod commands;
 mod database;
 mod face_recognition;
@@ -195,6 +196,10 @@ fn main() {
             // Presets
             commands::save_presets,
             commands::load_presets,
+            // AI Chat (Ollama)
+            commands::check_ollama_status,
+            commands::analyze_image_scene,
+            commands::chat_edit_image,
             // Face recognition (ONNX)
             commands::check_models_status,
             commands::detect_and_embed_faces,

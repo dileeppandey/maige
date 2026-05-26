@@ -14,6 +14,7 @@ import { useEditStore } from './store/useEditStore'
 import { useLibraryStore } from './store/useLibraryStore'
 import { useUIStore } from './store/useUIStore'
 import { useFaceDetection } from './hooks/useFaceDetection'
+import { useSceneAnalysis } from './hooks/useSceneAnalysis'
 import { useCallback } from 'react'
 
 function App() {
@@ -235,6 +236,9 @@ function App() {
       applyPreset(selectedPath, presetId)
     }
   }
+
+  // Scene analysis via Ollama (auto-runs when image changes, populates chat)
+  useSceneAnalysis(selectedPath)
 
   // Get UI state
   const {

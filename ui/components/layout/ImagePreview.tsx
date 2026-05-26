@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import type { FileInfo, ImageAdjustments } from '../../../shared/types'
 import { Image as ImageIcon, Grid, ArrowLeft } from 'lucide-react'
 import { ImageViewer } from '../viewer/ImageViewer'
 import { GalleryGrid } from '../gallery/GalleryGrid'
+import { RegionSelector } from '../chat/RegionSelector'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../../shared/types'
 import { useUIStore } from '../../store/useUIStore'
 import { useLibraryStore } from '../../store/useLibraryStore'
@@ -24,8 +26,9 @@ export function ImagePreview({
     onSelectFile = () => { },
     totalPhotos = 0
 }: ImagePreviewProps) {
-    const { centerPanelMode, setCenterPanelMode } = useUIStore()
+    const { centerPanelMode, setCenterPanelMode, isRegionSelectMode } = useUIStore()
     const { imageCacheVersion } = useLibraryStore()
+    const [viewerZoom, setViewerZoom] = useState(1)
 
     // Show gallery grid when in grid mode and no file is being edited
     if (centerPanelMode === 'grid') {
@@ -78,6 +81,12 @@ export function ImagePreview({
                     filePath={selectedFile.path}
                     adjustments={adjustments}
                     onHistogramChange={onHistogramChange}
+                    onZoomChange={setViewerZoom}
+                    overlaySlot={
+                        isRegionSelectMode ? (
+                            <RegionSelector zoom={viewerZoom} />
+                        ) : null
+                    }
                 />
             ) : (
                 <div className="flex-1 flex items-center justify-center text-gray-600">

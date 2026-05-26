@@ -11,6 +11,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { ImageAdjustments } from '../../shared/types'
 import { DEFAULT_IMAGE_ADJUSTMENTS } from '../../shared/types'
+import { ImageProcessor } from '../processing/ImageProcessor'
 
 interface UseImageViewerOptions {
     src: string | null
@@ -40,6 +41,7 @@ export function useImageViewer({
 }: UseImageViewerOptions): UseImageViewerReturn {
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const imgRef = useRef<HTMLImageElement | null>(null)
+    const processorRef = useRef<ImageProcessor | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
@@ -53,6 +55,7 @@ export function useImageViewer({
     useEffect(() => {
         if (!src) {
             imgRef.current = null
+            processorRef.current = null
             setDimensions({ width: 0, height: 0 })
             setHistogram(null)
             return
@@ -61,27 +64,46 @@ export function useImageViewer({
         setIsLoading(true)
         setError(null)
 
-        const img = new Image()
-        imgRef.current = img
+        const processor = new ImageProcessor()
+        processorRef.current = processor
 
-        img.onload = () => {
-            setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-            renderToCanvas(img)
+        processor.loadImage(src).then(() => {
+            const canvas = canvasRef.current
+            if (canvas) {
+                processor.processToCanvas(adjustments, canvas)
+                setDimensions(processor.getDimensions())
+            }
             setIsLoading(false)
-        }
-
-        img.onerror = () => {
-            setError('Failed to load image')
-            setIsLoading(false)
-        }
-
-        img.src = src
+        }).catch(() => {
+            // Fallback: draw via <img> tag if ImageProcessor fails (e.g. CORS)
+            processorRef.current = null
+            const img = new Image()
+            imgRef.current = img
+            img.onload = () => {
+                setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+                renderToCanvas(img)
+                setIsLoading(false)
+            }
+            img.onerror = () => {
+                setError('Failed to load image')
+                setIsLoading(false)
+            }
+            img.src = src
+        })
 
         return () => {
-            img.onload = null
-            img.onerror = null
+            processorRef.current = null
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [src])
+
+    // Re-process canvas whenever adjustments change (live preview)
+    useEffect(() => {
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+        if (!processor || !processor.isLoaded() || !canvas) return
+        processor.processToCanvas(adjustments, canvas)
+    }, [adjustments])
 
     // Fetch histogram from Rust whenever adjustments or filePath change (debounced)
     useEffect(() => {
@@ -117,24 +139,30 @@ export function useImageViewer({
 
     const showOriginal = useCallback(() => {
         setIsShowingOriginal(true)
-        // Re-draw the unprocessed image.  The `src` URL already shows the
-        // cached file on disk; the live-preview canvas filter is cleared.
+        const processor = processorRef.current
         const canvas = canvasRef.current
-        const img = imgRef.current
-        if (canvas && img) {
-            const ctx = canvas.getContext('2d')
-            if (ctx) {
-                ctx.filter = 'none'
-                ctx.drawImage(img, 0, 0)
+        if (processor && processor.isLoaded() && canvas) {
+            processor.renderOriginal(canvas)
+        } else {
+            const img = imgRef.current
+            if (canvas && img) {
+                const ctx = canvas.getContext('2d')
+                if (ctx) { ctx.filter = 'none'; ctx.drawImage(img, 0, 0) }
             }
         }
     }, [])
 
     const showProcessed = useCallback(() => {
         setIsShowingOriginal(false)
-        const img = imgRef.current
-        if (img) renderToCanvas(img)
-    }, [renderToCanvas])
+        const processor = processorRef.current
+        const canvas = canvasRef.current
+        if (processor && processor.isLoaded() && canvas) {
+            processor.processToCanvas(adjustments, canvas)
+        } else {
+            const img = imgRef.current
+            if (img) renderToCanvas(img)
+        }
+    }, [adjustments, renderToCanvas])
 
     return {
         canvasRef,

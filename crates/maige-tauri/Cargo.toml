@@ -35,6 +35,9 @@ image = { version = "0.24", features = ["jpeg", "png", "webp", "tiff", "gif", "b
 # Error handling
 anyhow = "1.0"
 
+# HTTP client for Ollama AI integration
+reqwest = { version = "0.12", features = ["json"] }
+
 # Base64 (face thumbnail encoding)
 base64 = "0.22"
 

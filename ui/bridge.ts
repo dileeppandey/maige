@@ -480,6 +480,45 @@ const apiImpl = {
         }).then((fn) => { unlisten = fn; });
         return () => { if (unlisten) unlisten(); };
     },
+
+    // -------------------------------------------------------------------------
+    // AI Chat (Ollama / Gemma3:4b)
+    // -------------------------------------------------------------------------
+
+    checkOllamaStatus: (): Promise<boolean> =>
+        invoke<boolean>('check_ollama_status').catch(() => false),
+
+    analyzeImageScene: (
+        imagePath: string,
+        region?: { x: number; y: number; width: number; height: number },
+    ) =>
+        invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
+            'analyze_image_scene',
+            { imagePath, region: region ?? null },
+        ).catch(() => ({
+            message: 'AI assistant unavailable — is Ollama running with gemma3:4b?',
+            adjustments: null,
+            suggestions: [],
+        })),
+
+    chatEditImage: (
+        imagePath: string,
+        instruction: string,
+        currentAdjustments: {
+            exposure: number; contrast: number; highlights: number; shadows: number;
+            whites: number; blacks: number; temperature: number; tint: number;
+            saturation: number; vibrance: number;
+        },
+        regionBase64?: string,
+    ) =>
+        invoke<{ message: string; adjustments: unknown; suggestions: unknown[] }>(
+            'chat_edit_image',
+            { imagePath, instruction, currentAdjustments, regionBase64: regionBase64 ?? null },
+        ).catch(() => ({
+            message: 'AI assistant unavailable — is Ollama running with gemma3:4b?',
+            adjustments: null,
+            suggestions: [],
+        })),
 };
 
 // Assign to window

@@ -255,3 +255,67 @@ export type FaceStats = {
     unidentifiedFaces: number;
     totalPeople: number;
 };
+
+// ============================================
+// AI Chat Types
+// ============================================
+
+export type FlatAdjustments = {
+    exposure: number;
+    contrast: number;
+    highlights: number;
+    shadows: number;
+    whites: number;
+    blacks: number;
+    temperature: number;
+    tint: number;
+    saturation: number;
+    vibrance: number;
+};
+
+export type CropRegion = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type ChatSuggestion = {
+    label: string;
+    adjustments: FlatAdjustments;
+};
+
+export type ChatResponse = {
+    message: string;
+    adjustments: FlatAdjustments | null;
+    suggestions: ChatSuggestion[];
+};
+
+export type ChatMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    adjustments?: FlatAdjustments | null;
+    suggestions?: ChatSuggestion[];
+    regionBase64?: string;
+    timestamp: string;
+};
+
+export type RegionSelection = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    base64: string;
+};
+
+export type MaigeRecipe = {
+    version: 1;
+    name: string;
+    description?: string;
+    createdAt: string;
+    steps: Array<{
+        instruction: string;
+        adjustments: FlatAdjustments;
+    }>;
+};
