@@ -505,6 +505,32 @@ pub async fn chat_edit_image(
     Ok(ai_chat::chat_edit(&image_path, &instruction, current_adjustments, region_base64).await)
 }
 
+/// Persist a single chat message (including its edit recipe) for an image.
+#[tauri::command]
+pub async fn save_chat_message(
+    app: AppHandle,
+    id: String,
+    image_path: String,
+    role: String,
+    content: String,
+    adjustments: Option<String>,
+    suggestions: Option<String>,
+    region_base64: Option<String>,
+    timestamp: String,
+) -> CmdResult<()> {
+    let msg = database::DbChatMessage { id, image_path, role, content, adjustments, suggestions, region_base64, timestamp };
+    database::save_chat_message(&app, &msg).await.map_err(|e| e.to_string())
+}
+
+/// Return all persisted chat messages for an image, ordered by timestamp ascending.
+#[tauri::command]
+pub async fn get_chat_messages(
+    app: AppHandle,
+    image_path: String,
+) -> CmdResult<Vec<database::DbChatMessage>> {
+    database::get_chat_messages(&app, &image_path).await.map_err(|e| e.to_string())
+}
+
 /// Reload face recognition models from disk (useful after the user downloads them).
 #[tauri::command]
 pub async fn reload_face_models(

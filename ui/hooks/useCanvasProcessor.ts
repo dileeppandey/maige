@@ -51,6 +51,8 @@ export function useCanvasProcessor({
             return
         }
 
+        let cancelled = false
+
         const loadImage = async () => {
             setIsLoading(true)
             setError(null)
@@ -58,19 +60,21 @@ export function useCanvasProcessor({
             try {
                 const processor = new ImageProcessor()
                 await processor.loadImage(src)
+                if (cancelled) return   // image switched while loading — discard
                 processorRef.current = processor
                 setDimensions(processor.getDimensions())
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load image')
-                processorRef.current = null
+                if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load image')
+                if (!cancelled) processorRef.current = null
             } finally {
-                setIsLoading(false)
+                if (!cancelled) setIsLoading(false)
             }
         }
 
         loadImage()
 
         return () => {
+            cancelled = true
             if (processTimerRef.current) {
                 cancelAnimationFrame(processTimerRef.current)
             }

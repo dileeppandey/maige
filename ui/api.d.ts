@@ -92,6 +92,28 @@ declare global {
             // Settings
             getSettings: () => Promise<Record<string, string>>;
             saveSetting: (key: string, value: string) => Promise<void>;
+
+            // Chat history persistence
+            saveChatMessage: (msg: {
+                id: string;
+                imagePath: string;
+                role: string;
+                content: string;
+                adjustments?: string | null;
+                suggestions?: string | null;
+                regionBase64?: string | null;
+                timestamp: string;
+            }) => Promise<void>;
+            getChatMessages: (imagePath: string) => Promise<Array<{
+                id: string;
+                image_path: string;
+                role: string;
+                content: string;
+                adjustments: string | null;
+                suggestions: string | null;
+                region_base64: string | null;
+                timestamp: string;
+            }>>;
         };
     }
 }

@@ -8,6 +8,7 @@ interface ChatState {
     ollamaAvailable: boolean | null;
 
     addMessage: (msg: ChatMessage) => void;
+    setMessages: (msgs: ChatMessage[]) => void;
     setPendingRegion: (region: RegionSelection | null) => void;
     setAnalyzing: (v: boolean) => void;
     setOllamaAvailable: (v: boolean) => void;
@@ -21,6 +22,7 @@ export const useChatStore = create<ChatState>((set) => ({
     ollamaAvailable: null,
 
     addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+    setMessages: (msgs) => set({ messages: msgs }),
     setPendingRegion: (region) => set({ pendingRegion: region }),
     setAnalyzing: (v) => set({ isAnalyzing: v }),
     setOllamaAvailable: (v) => set({ ollamaAvailable: v }),
