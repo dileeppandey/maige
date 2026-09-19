@@ -17,11 +17,13 @@ npm run lint           # ESLint
 ```
 
 ```bash
-cd src-tauri && cargo check          # Fast type-check Tauri backend
-cd src-tauri && cargo build          # Build Tauri backend
-cd rust/maige-core && cargo build    # Build shared Rust library
-cargo test                           # Run Rust tests (from src-tauri/ or rust/maige-core/)
+cd crates/maige-tauri && cargo check   # Fast type-check Tauri backend
+cd crates/maige-tauri && cargo build   # Build Tauri backend
+cd crates/maige-core && cargo build    # Build shared Rust library
+cargo test                             # Run Rust tests (from crates/maige-tauri/ or crates/maige-core/)
 ```
+
+Note: `cargo check`/`build` for `crates/maige-tauri` requires Tauri's native GTK/WebKitGTK dev libraries (`libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, etc. on Linux); it will fail with a `pkg-config`/`gdk-3.0 not found` error in environments that lack them (e.g. minimal containers). `crates/maige-core` has no such dependency and checks/builds standalone.
 
 **Rust toolchain requirement:** The Cargo.lock requires Rust 1.85+ (uses `serde_spanned 1.1.1` which needs edition 2024). Run `rustup update` if `cargo check` fails with an "edition2024 is required" error.
 
@@ -31,44 +33,51 @@ There are no frontend tests (no Vitest/Jest setup exists).
 
 ### Frontend ↔ Backend Bridge
 
-**Call path:** UI component → Zustand store → `window.api` (`src/bridge.ts`) → Tauri `invoke()` → `src-tauri/src/commands.rs` → `database.rs`
+**Call path:** UI component → Zustand store → `window.api` (`ui/bridge.ts`) → Tauri `invoke()` → `crates/maige-tauri/src/commands.rs` → `database.rs`
 
-`src/bridge.ts` is the sole contract between frontend and backend — it defines all 40+ IPC commands and event listeners as typed methods on `window.api`.
+`ui/bridge.ts` is the sole contract between frontend and backend — it defines all 40+ IPC commands and event listeners as typed methods on `window.api`.
 
-**Image loading:** Always use `assetUrl()` from `src/utils/assetUrl.ts` (wraps `convertFileSrc`). Never use raw file paths or `media://`. Pass `imageCacheVersion` from the library store as the second argument when displaying images that may have been modified, to force cache invalidation.
+**Image loading:** Always use `assetUrl()` from `ui/utils/assetUrl.ts` (wraps `convertFileSrc`). Never use raw file paths or `media://`. Pass `imageCacheVersion` from the library store as the second argument when displaying images that may have been modified, to force cache invalidation.
 
 **Serialization:** Rust structs serialize to **snake_case** JSON by serde default (no `rename_all`). All TypeScript types in `shared/types.ts` use snake_case to match. When adding new Rust struct fields, the TypeScript side must use the same snake_case name — do not convert to camelCase.
 
-### Frontend (`src/`)
+### Frontend (`ui/`)
 
 - **`App.tsx`** — Root component. Manages view modes (`library`, `search`, `tag`, `people`, `cluster`, `duplicates`, `album`), orchestrates the three-panel layout (left panel → center image preview → right adjustments), and wires up Zustand stores.
-- **Three Zustand stores** in `src/store/`:
+- **Zustand stores** in `ui/store/`:
   - `useEditStore.ts` — Per-image adjustment state (Map keyed by filePath), presets, clipboard
   - `useLibraryStore.ts` — Library images, albums, selection (`Set<number>` of IDs), search, view modes, `imageCacheVersion`
   - `useUIStore.ts` — Panel visibility, zoom level, compare mode, UI toggles
-- **`src/processing/`** — Canvas-based pixel manipulation (`ImageProcessor.ts`) and MediaPipe face detection wrapper (`faceDetector.ts`)
-- **`src/hooks/useCanvasProcessor.ts`** — Renders adjusted image to canvas for live preview, computes histogram, debounces adjustments
+  - `useSettingsStore.ts` — App preferences (export defaults, AI provider config, interface defaults), persisted via `settings` table
+  - `useChatStore.ts` — AI chat panel state/history
+- **`ui/processing/`** — Canvas-based pixel manipulation (`ImageProcessor.ts`) and MediaPipe face detection wrapper (`faceDetector.ts`)
+- **`ui/hooks/`** — `useCanvasProcessor.ts` (renders adjusted image to canvas for live preview, computes histogram, debounces adjustments), plus `useFaceDetection.ts`, `useImageAdjustments.ts`, `useImageViewer.ts`, `useSceneAnalysis.ts`
+- **`ui/components/chat/`** — AI assistant panel (`ChatPanel.tsx`), recipe/preset management (`RecipeManager.tsx`), and region selection for targeted edits (`RegionSelector.tsx`)
+- **`PreferencesModal.tsx`** — General/AI Assistant/Interface settings UI backed by `useSettingsStore`
 
-### Tauri Backend (`src-tauri/src/`)
+### Tauri Backend (`crates/maige-tauri/src/`)
 
-- **`main.rs`** — App initialization, native menu (39 items with keyboard shortcuts), plugin registration (shell, dialog, fs), synchronous DB init, registers all command handlers
-- **`commands.rs`** — All IPC handlers; thin delegation layer to `database::*` and `image_processor::*` functions
-- **`database.rs`** — rusqlite wrapper; DB at `{app_data_dir}/maige.db`; tables: `images`, `albums`, `album_images`, `people`, `faces`, `tags`, `image_tags`, `presets`. Duplicate detection via Hamming distance on pHash. Face thumbnail cropping on save.
+- **`main.rs`** — App initialization, native menu (with keyboard shortcuts), plugin registration (shell, dialog, fs), synchronous DB init, registers all command handlers
+- **`commands.rs`** — All IPC handlers; thin delegation layer to `database::*`, `image_processor::*`, `face_recognition::*`, and `ai_chat::*` functions
+- **`database.rs`** — rusqlite wrapper; DB at `{app_data_dir}/maige.db`; tables: `images`, `albums`, `album_images`, `people`, `faces`, `tags`, `image_tags`, `presets`, `settings`, `chat_messages`. Duplicate detection via Hamming distance on pHash. Face thumbnail cropping on save.
 - **`image_processor.rs`** — Image loading, EXIF metadata extraction, phash generation, full 10-adjustment processing and export (parallel via rayon)
+- **`face_recognition.rs`** — Face embedding storage and clustering (`cluster_faces` command: pairwise cosine distance, average-linkage grouping)
+- **`ai_chat.rs`** — AI assistant backend (Ollama-backed natural-language editing/scene analysis; provider is configurable via `useSettingsStore`)
 
-### Shared Rust Library (`rust/maige-core/`)
+### Shared Rust Library (`crates/maige-core/`)
 
-Pure library with no Tauri dependencies — usable independently. Currently not depended on by `src-tauri` (Rust 1.80 can't resolve its transitive deps); the adjustment algorithms in `src-tauri/src/image_processor.rs` mirror `maige-core/src/adjustments.rs`.
+Pure library with no Tauri dependencies — usable independently. `crates/maige-tauri` now depends on it directly (`Cargo.toml`: `maige-core = { path = "../maige-core" }`).
 
 - **`processor.rs`** — `ImageProcessor` struct: load image, apply adjustments, export, compute histogram/phash
 - **`adjustments.rs`** — All light + color adjustments, parallelized with rayon
 - **`phash.rs`** — dHash perceptual hashing for duplicate detection
+- **`metadata.rs`**, **`histogram.rs`**, **`scanner.rs`**, **`error.rs`** — EXIF metadata, histogram computation, folder scanning, shared error types
 
 All adjustment values use a **-100 to 100 scale** in both Rust and TypeScript. Clamping happens in the UI sliders and in each algorithm's implementation.
 
 ### Tauri 2 Capabilities
 
-Permissions for Tauri plugins are granted in `src-tauri/capabilities/default.json`. If a plugin call silently returns null or fails, the permission is likely missing from this file.
+Permissions for Tauri plugins are granted in `crates/maige-tauri/capabilities/default.json`. If a plugin call silently returns null or fails, the permission is likely missing from this file.
 
 ## Key Patterns & Gotchas
 
@@ -76,7 +85,7 @@ Permissions for Tauri plugins are granted in `src-tauri/capabilities/default.jso
 
 **`filePath` vs `src` in `ImageViewer`:** `src` is the Tauri asset URL (for display), `filePath` is the raw file path (for export/write). `ImagePreview` passes both from `selectedFile`: `src={assetUrl(selectedFile.path)}` and `filePath={selectedFile.path}`.
 
-**Split face detection:** MediaPipe detection runs in the browser (frontend), results are stored in the Tauri backend via `save_face_detections`. The backend handles storage and cropping; the frontend handles detection and clustering UI. Face clustering (`clusterFaces()` in `bridge.ts`) is a stub — not yet implemented.
+**Split face detection:** MediaPipe detection runs in the browser (frontend), results are stored in the Tauri backend via `save_face_detections`. The backend handles storage and cropping; the frontend handles detection UI. Clustering (`clusterFaces()` in `bridge.ts` → `cluster_faces` command) is implemented server-side in `face_recognition.rs`, but the frontend's cluster-progress indicator in `PeoplePanel.tsx` is never driven (its setter is unused) — clustering runs without incremental progress feedback.
 
 **Import progress events:** Folder import emits `import-progress` events from Rust (`app.emit("import-progress", ...)`) that the frontend subscribes to via `window.api.onImportProgress()`. Format: `{ current: number; total: number; file: string }`.
 

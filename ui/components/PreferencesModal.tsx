@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X, Settings, Bot, Monitor } from 'lucide-react'
 import { useSettingsStore } from '../store/useSettingsStore'
-import type { AiProvider, ExportFormat } from '../store/useSettingsStore'
+import type { AiProvider, AppSettings, ExportFormat, SettingsState } from '../store/useSettingsStore'
 
 interface PreferencesModalProps {
     isOpen: boolean
@@ -87,7 +87,7 @@ export function PreferencesModal({ isOpen, onClose }: PreferencesModalProps) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-type UpdateFn = ReturnType<typeof useSettingsStore>['updateSetting']
+type UpdateFn = SettingsState['updateSetting']
 
 function SectionHeader({ title, description }: { title: string; description?: string }) {
     return (
@@ -172,7 +172,7 @@ function TextInput({
 
 // ─── General Tab ─────────────────────────────────────────────────────────────
 
-function GeneralTab({ settings, onUpdate }: { settings: ReturnType<typeof useSettingsStore>['settings']; onUpdate: UpdateFn }) {
+function GeneralTab({ settings, onUpdate }: { settings: AppSettings; onUpdate: UpdateFn }) {
     const quality = parseInt(settings.export_quality, 10)
 
     return (
@@ -222,7 +222,7 @@ const AI_PROVIDERS: { value: AiProvider; label: string; description: string }[] 
     { value: 'ollama', label: 'Ollama', description: 'Local AI models via Ollama' },
 ]
 
-function AiTab({ settings, onUpdate }: { settings: ReturnType<typeof useSettingsStore>['settings']; onUpdate: UpdateFn }) {
+function AiTab({ settings, onUpdate }: { settings: AppSettings; onUpdate: UpdateFn }) {
     const isOllama = settings.ai_provider === 'ollama'
 
     return (
@@ -307,7 +307,7 @@ function AiTab({ settings, onUpdate }: { settings: ReturnType<typeof useSettings
 
 // ─── Interface Tab ────────────────────────────────────────────────────────────
 
-function InterfaceTab({ settings, onUpdate }: { settings: ReturnType<typeof useSettingsStore>['settings']; onUpdate: UpdateFn }) {
+function InterfaceTab({ settings, onUpdate }: { settings: AppSettings; onUpdate: UpdateFn }) {
     return (
         <div>
             <SectionHeader title="Layout" />

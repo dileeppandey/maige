@@ -30,7 +30,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     default_center_mode: 'grid',
 }
 
-interface SettingsState {
+export interface SettingsState {
     settings: AppSettings
     loaded: boolean
 
@@ -38,7 +38,7 @@ interface SettingsState {
     updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => Promise<void>
 }
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
+export const useSettingsStore = create<SettingsState>((set) => ({
     settings: { ...DEFAULT_SETTINGS },
     loaded: false,
 
@@ -48,7 +48,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
         for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]) {
             if (raw[key] !== undefined) {
-                (merged as Record<string, string>)[key] = raw[key]
+                (merged as unknown as Record<string, string>)[key] = raw[key]
             }
         }
 
